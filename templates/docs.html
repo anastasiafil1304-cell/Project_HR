@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Документация | Project HR{% endblock %}
+
+{% block content %}
+<section class="section" style="margin-top: 0;">
+  <div class="section-head">
+    <div>
+      <h2>Документация проекта</h2>
+      <p class="section-note">Краткое техническое описание для демонстрации и защиты.</p>
+    </div>
+    <a class="btn" href="{{ url_for('openapi_spec') }}">OpenAPI YAML</a>
+  </div>
+
+  <div class="grid grid-3">
+    <article class="card">
+      <h3>Frontend</h3>
+      <p>Jinja2-шаблоны, локальный CSS, адаптивные страницы HR и кандидата без зависимости от CDN.</p>
+    </article>
+    <article class="card">
+      <h3>Backend</h3>
+      <p>Flask-приложение с маршрутами авторизации, создания вакансий, прохождения теста и просмотра отчётов.</p>
+    </article>
+    <article class="card">
+      <h3>Данные и AI</h3>
+      <p>PostgreSQL или SQLite fallback. Ollama используется при наличии, иначе работает детерминированная fallback-оценка.</p>
+    </article>
+  </div>
+</section>
+
+<section class="section">
+  <div class="card">
+    <h3>Основной сценарий</h3>
+    <ol class="list">
+      <li>HR регистрируется или открывает демо-режим.</li>
+      <li>Создаёт вакансию по текстовому описанию требований.</li>
+      <li>Система выделяет навыки и формирует вопросы.</li>
+      <li>Кандидат проходит тест по ссылке.</li>
+      <li>HR открывает итоговый отчёт и сравнивает кандидатов.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="section">
+  <div class="grid grid-3">
+    <article class="card">
+      <h3>Ключевые маршруты</h3>
+      <ul class="list">
+        <li><code>/dashboard</code> - панель HR</li>
+        <li><code>/vacancy/new</code> - создание вакансии</li>
+        <li><code>/test/&lt;id&gt;</code> - тест кандидата</li>
+        <li><code>/vacancy/&lt;id&gt;/result</code> - общий отчёт</li>
+      </ul>
+    </article>
+    <article class="card">
+      <h3>Таблицы</h3>
+      <ul class="list">
+        <li><code>users</code> - HR-пользователи</li>
+        <li><code>vacancy</code> - вакансии</li>
+        <li><code>question</code> - вопросы</li>
+        <li><code>test_session</code> и <code>answer</code> - прохождения и ответы</li>
+      </ul>
+    </article>
+    <article class="card">
+      <h3>Демо-данные</h3>
+      <p>Маршрут <code>/demo</code> создаёт демонстрационный HR-аккаунт, вакансию, вопросы и результаты кандидатов.</p>
+    </article>
+  </div>
+</section>
+
+<section class="section">
+  <div class="card">
+    <h3>Пример API-описания</h3>
+    <pre class="code-block">GET /health
+POST /signup
+POST /login
+POST /vacancy/new
+GET /test/{vacancy_id}
+GET /test/result/{session_id}</pre>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Вход | Project HR{% endblock %}
+
+{% block content %}
+<section class="auth-wrap">
+  <div class="auth-card">
+    <h1>Вход в панель HR</h1>
+    <form action="{{ url_for('login') }}" method="POST" class="form-grid">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="password">Пароль</label>
+        <input type="password" name="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Войти</button>
+    </form>
+    <p class="help" style="text-align: center; margin-top: 18px;">
+      Нет аккаунта? <a href="{{ url_for('signup') }}">Зарегистрироваться</a> или <a href="{{ url_for('demo') }}">открыть демо</a>.
+    </p>
+  </div>
+</section>
+{% endblock %}

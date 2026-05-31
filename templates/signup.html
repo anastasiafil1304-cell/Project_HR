@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Регистрация | Project HR{% endblock %}
+
+{% block content %}
+<section class="auth-wrap">
+  <div class="auth-card">
+    <h1>Регистрация HR-специалиста</h1>
+    <form action="{{ url_for('signup') }}" method="POST" class="form-grid">
+      <div class="field">
+        <label for="name">Имя</label>
+        <input type="text" name="name" id="name" autocomplete="name" required>
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="password">Пароль</label>
+        <input type="password" name="password" id="password" autocomplete="new-password" required>
+      </div>
+      <div class="field">
+        <label for="confirmPassword">Подтверждение пароля</label>
+        <input type="password" name="confirmPassword" id="confirmPassword" autocomplete="new-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Зарегистрироваться</button>
+    </form>
+    <p class="help" style="text-align: center; margin-top: 18px;">
+      Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a>.
+    </p>
+  </div>
+</section>
+{% endblock %}

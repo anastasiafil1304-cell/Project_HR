@@ -1,0 +1,68 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+ai2/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Database files
+*.db
+*.sqlite3
+probe_launcher.sqlite3
+smoke_e2e.sqlite3
+smoke_test.sqlite3
+vacmatch.db
+
+# Logs
+*.log
+server-error.log
+server-start.log
+ollama-project-err.log
+ollama-project-out.log
+ollama-test-err.log
+ollama-test-out.log
+
+# Ollama
+.ollama/
+
+# Build artifacts
+ProjectHR.spec

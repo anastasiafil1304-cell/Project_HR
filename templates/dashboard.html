@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Панель HR | Project HR{% endblock %}
+
+{% block content %}
+<section class="section" style="margin-top: 0;">
+  <div class="section-head">
+    <div>
+      <h2>Панель HR</h2>
+      <p class="section-note">Вакансии, ссылки для кандидатов и результаты первичного отбора.</p>
+    </div>
+    <div class="hero-actions" style="margin-top: 0;">
+      <a class="btn" href="{{ url_for('demo') }}">Обновить демо</a>
+      <a class="btn btn-primary" href="{{ url_for('new_vacancy') }}">Создать вакансию</a>
+    </div>
+  </div>
+
+  <div class="grid grid-4">
+    <div class="card stat">
+      <span class="stat-number">{{ stats.total if stats else vacancies|length }}</span>
+      <span class="stat-label">Всего вакансий</span>
+    </div>
+    <div class="card stat">
+      <span class="stat-number">{{ stats.ready if stats else 0 }}</span>
+      <span class="stat-label">Готовы к тестированию</span>
+    </div>
+    <div class="card stat">
+      <span class="stat-number">{{ stats.candidates if stats else 0 }}</span>
+      <span class="stat-label">Кандидатов прошли тест</span>
+    </div>
+    <div class="card stat">
+      <span class="stat-number">{{ stats.avg_score if stats else '0.00' }}</span>
+      <span class="stat-label">Средняя итоговая оценка</span>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  {% if vacancies %}
+    <div class="vacancy-grid">
+      {% for v in vacancies %}
+        <article class="card vacancy-card">
+          <div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;">
+            <h3 class="vacancy-title">{{ v.title }}</h3>
+            <span class="badge {% if v.status == 'Готово' %}badge-success{% elif v.status == 'Ошибка' %}badge-danger{% else %}badge-warning{% endif %}">
+              {{ v.status }}
+            </span>
+          </div>
+          <p class="help">Создано: {{ v.created_at or 'неизвестно' }}</p>
+          <p class="help">Кандидатов: {{ v.candidates or 0 }}{% if v.avg_score is not none %} | средняя оценка: {{ v.avg_score }}{% endif %}</p>
+
+          {% if v.status == 'Готово' %}
+            <div class="notice" style="margin: 14px 0;">
+              Ссылка для кандидата: <strong>{{ request.host_url.rstrip('/') }}/test/{{ v.id }}</strong>
+            </div>
+          {% else %}
+            <div class="notice notice-warning" style="margin: 14px 0;">
+              Вопросы ещё формируются. Обновите страницу через несколько секунд.
+            </div>
+          {% endif %}
+
+          <div class="actions">
+            <a class="btn {% if v.status == 'Готово' %}btn-primary{% endif %}" href="{{ url_for('candidate_test', vacancy_id=v.id) }}">Открыть тест</a>
+            <a class="btn" href="{{ url_for('evaluate_manually', vacancy_id=v.id) }}">Ручная оценка</a>
+            <a class="btn" href="{{ url_for('vacancy_result', vacancy_id=v.id) }}">Общий отчёт</a>
+            <form method="POST" action="{{ url_for('delete_vacancy', vacancy_id=v.id) }}" onsubmit="return confirm('Удалить вакансию и все связанные результаты?')">
+              <button type="submit" class="btn btn-danger btn-full">Удалить</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card card-shadow" style="text-align: center; padding: 34px;">
+      <h3>Вакансий пока нет</h3>
+      <p>Создайте первую вакансию вручную или подготовьте демо-данные для защиты.</p>
+      <div class="hero-actions" style="justify-content: center;">
+        <a class="btn btn-primary" href="{{ url_for('demo') }}">Запустить демо</a>
+        <a class="btn" href="{{ url_for('new_vacancy') }}">Создать вакансию</a>
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

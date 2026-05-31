@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Project HR | Интеллектуальная оценка кандидатов{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div>
+    <h1>Автоматизация HR-скрининга и первичной оценки кандидатов</h1>
+    <p>
+      Project HR помогает HR-специалисту создать вакансию, автоматически получить вопросы,
+      отправить кандидату ссылку на тестирование и увидеть итоговый отчёт с оценками по навыкам.
+    </p>
+    <div class="hero-actions">
+      {% if session.user_id %}
+        <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Открыть панель HR</a>
+      {% else %}
+        <a class="btn btn-primary" href="{{ url_for('demo') }}">Запустить демо</a>
+        <a class="btn" href="{{ url_for('signup') }}">Создать HR-аккаунт</a>
+      {% endif %}
+      <a class="btn" href="{{ url_for('docs') }}">Посмотреть архитектуру</a>
+    </div>
+  </div>
+  <div class="hero-panel">
+    <div class="metric-box">
+      <span class="metric-value">4</span>
+      <span class="metric-label">этапа демонстрации: вакансия, вопросы, тест, отчёт</span>
+    </div>
+    <div class="metric-box">
+      <span class="metric-value">0</span>
+      <span class="metric-label">обязательных внешних сервисов для локального показа</span>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Что показывает система</h2>
+      <p class="section-note">Ключевые функции, которые удобно демонстрировать на защите.</p>
+    </div>
+  </div>
+  <div class="grid grid-3">
+    <article class="card">
+      <h3>Анализ вакансии</h3>
+      <p>Из текста требований выделяются навыки, формируются вопросы и важность каждой компетенции.</p>
+    </article>
+    <article class="card">
+      <h3>Кандидатская ссылка</h3>
+      <p>Кандидат проходит тест без регистрации, а HR видит результаты в общей панели.</p>
+    </article>
+    <article class="card">
+      <h3>Итоговый отчёт</h3>
+      <p>Система рассчитывает взвешенную оценку, показывает ответы и формирует понятную сводку.</p>
+    </article>
+  </div>
+</section>
+
+<section class="section">
+  <div class="grid grid-3">
+    <article class="card card-shadow">
+      <h3>Демо-режим</h3>
+      <p>Кнопка «Запустить демо» создаёт готовую вакансию, вопросы и результаты двух кандидатов.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="{{ url_for('demo') }}">Подготовить демонстрацию</a>
+      </div>
+    </article>
+    <article class="card">
+      <h3>Работа без Ollama</h3>
+      <p>Если локальная нейросеть недоступна, включается fallback-логика по ключевым словам и шаблонам.</p>
+    </article>
+    <article class="card">
+      <h3>Локальная база</h3>
+      <p>Для защиты достаточно SQLite. PostgreSQL можно подключить отдельно для расширенного режима.</p>
+    </article>
+  </div>
+</section>
+{% endblock %}

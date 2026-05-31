@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Общий отчёт | Project HR{% endblock %}
+
+{% block content %}
+<section class="section" style="margin-top: 0;">
+  <div class="section-head">
+    <div>
+      <h2>Общий отчёт по вакансии</h2>
+      <p class="section-note">Сравнение кандидатов по итоговой взвешенной оценке.</p>
+    </div>
+    <a class="btn" href="{{ url_for('dashboard') }}">Назад в панель</a>
+  </div>
+
+  {% if results %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Кандидат</th>
+            <th>Дата прохождения</th>
+            <th>Итоговая оценка</th>
+            <th>Рекомендация</th>
+            <th>Действие</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+            <tr>
+              <td><strong>{{ r.name }}</strong></td>
+              <td>{{ r.date }}</td>
+              <td>
+                <strong class="{% if r.score >= 0.75 %}score-good{% elif r.score >= 0.3 %}score-mid{% else %}score-low{% endif %}">
+                  {{ r.score }}
+                </strong>
+              </td>
+              <td>
+                {% if r.score >= 0.75 %}
+                  Пригласить на следующий этап
+                {% elif r.score >= 0.3 %}
+                  Провести уточняющее интервью
+                {% else %}
+                  Низкий приоритет
+                {% endif %}
+              </td>
+              <td><a class="btn" href="{{ url_for('test_result', session_id=r.session_id) }}">Открыть отчёт</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card card-shadow">
+      <h3>Пока нет результатов</h3>
+      <p>Отправьте кандидатам ссылку на тест или воспользуйтесь ручной оценкой.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

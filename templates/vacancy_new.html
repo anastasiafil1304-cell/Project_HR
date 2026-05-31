@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Создать вакансию | Project HR{% endblock %}
+
+{% block content %}
+<section class="section" style="margin-top: 0;">
+  <div class="section-head">
+    <div>
+      <h2>Создать вакансию</h2>
+      <p class="section-note">Опишите требования. Система выделит навыки и подготовит вопросы кандидату.</p>
+    </div>
+    <a class="btn" href="{{ url_for('dashboard') }}">Назад в панель</a>
+  </div>
+
+  <form method="POST" class="form-card form-grid" onsubmit="showLoader()">
+    <div class="field">
+      <label for="text">Описание вакансии</label>
+      <textarea id="text" name="text" rows="12" required placeholder="Например: Python backend developer. Flask, PostgreSQL, REST API, Docker, Git, опыт тестирования, коммуникация с командой..."></textarea>
+      <p class="help">Для качественной демонстрации укажите технологии, задачи, уровень кандидата и ожидаемые soft skills.</p>
+    </div>
+
+    <div class="notice" id="loading" style="display: none;">
+      Генерация вопросов запущена. После сохранения вы вернётесь в панель HR.
+    </div>
+
+    <div class="hero-actions">
+      <button type="submit" class="btn btn-primary">Сгенерировать тест</button>
+      <button type="button" class="btn" onclick="fillExample()">Вставить пример</button>
+    </div>
+  </form>
+</section>
+
+<script>
+  function showLoader() {
+    const loader = document.getElementById("loading");
+    loader.style.display = "block";
+  }
+
+  function fillExample() {
+    document.getElementById("text").value = `Middle Python backend developer
+
+Задачи:
+- разработка REST API для HR-сервиса;
+- интеграция с PostgreSQL и Redis;
+- контейнеризация приложения через Docker;
+- написание unit и integration тестов;
+- участие в code review и декомпозиции задач.
+
+Требования:
+- уверенный Python 3;
+- Flask или FastAPI;
+- SQL и оптимизация запросов;
+- Git, Docker, базовое понимание CI/CD;
+- умение объяснять технические решения простым языком.`;
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Тест кандидата | Project HR{% endblock %}
+
+{% block content %}
+<section class="section" style="margin-top: 0;">
+  <div class="section-head">
+    <div>
+      <h2>Тестирование кандидата</h2>
+      <p class="section-note">Ответьте на вопросы развёрнуто: система оценивает не только ключевые слова, но и полноту ответа.</p>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="notice notice-danger">{{ error }}</div>
+  {% endif %}
+
+  {% if questions %}
+    <form id="testForm" method="POST" class="form-card form-grid">
+      <div class="field">
+        <label for="full_name">ФИО кандидата</label>
+        <input type="text" name="full_name" id="full_name" required>
+      </div>
+
+      {% for q in questions %}
+        <div class="field card">
+          <label for="answer{{ q[0] }}">Вопрос {{ loop.index }}</label>
+          <p class="section-note" style="margin-bottom: 10px;">{{ q[1] }}</p>
+          <textarea id="answer{{ q[0] }}" name="answer{{ q[0] }}" rows="5" maxlength="2500" required placeholder="Введите ответ кандидата..."></textarea>
+        </div>
+      {% endfor %}
+
+      <div id="loadingBlock" class="notice" style="display: none;">
+        Ответы отправлены. Формируется итоговый отчёт.
+      </div>
+
+      <button type="submit" class="btn btn-primary">Отправить ответы</button>
+    </form>
+  {% else %}
+    <div class="card card-shadow">
+      <h3>Вопросы ещё не готовы</h3>
+      <p>Обычно генерация занимает несколько секунд. Обновите страницу или обратитесь к HR-специалисту.</p>
+    </div>
+  {% endif %}
+</section>
+
+<script>
+  const form = document.getElementById("testForm");
+  const loader = document.getElementById("loadingBlock");
+  if (form) {
+    form.addEventListener("submit", function () {
+      loader.style.display = "block";
+    });
+  }
+</script>
+{% endblock %}

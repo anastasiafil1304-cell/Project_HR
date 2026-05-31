@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Результаты тестирования | Project HR{% endblock %}
+
+{% block content %}
+{% set score_class = 'score-good' if final_score >= 0.75 else ('score-mid' if final_score >= 0.3 else 'score-low') %}
+
+<section class="section" style="margin-top: 0;">
+  <div class="section-head">
+    <div>
+      <h2>Результаты теста</h2>
+      <p class="section-note">Итоговая оценка рассчитывается по формуле: важность навыка × оценка ответа.</p>
+    </div>
+    {% if session.user_id %}
+      <a class="btn" href="{{ url_for('dashboard') }}">Вернуться в панель</a>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-3">
+    <div class="card card-shadow">
+      <span class="stat-label">Итоговая оценка</span>
+      <div class="score {{ score_class }}">{{ final_score }}</div>
+    </div>
+    <div class="card">
+      <span class="stat-label">Количество ответов</span>
+      <span class="stat-number">{{ answers|length }}</span>
+    </div>
+    <div class="card">
+      <span class="stat-label">Интерпретация</span>
+      <p>
+        {% if final_score >= 0.75 %}
+          Кандидат хорошо соответствует требованиям.
+        {% elif final_score >= 0.3 %}
+          Требуется дополнительное интервью по отдельным навыкам.
+        {% else %}
+          Соответствие низкое, нужны уточняющие вопросы.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="card">
+    <h3>Сводка</h3>
+    <div class="summary">{{ summary }}</div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Ответы по вопросам</h2>
+      <p class="section-note">По каждому вопросу видны вес компетенции, ответ и частная оценка.</p>
+    </div>
+  </div>
+  <div class="grid grid-3">
+    {% for q, a, s, w in answers %}
+      <article class="card question-card">
+        <div>
+          <span class="badge badge-warning">Важность: {{ w }}</span>
+        </div>
+        <strong>{{ q }}</strong>
+        <div>
+          <span class="stat-label">Ответ</span>
+          <div class="answer-box">{{ a }}</div>
+        </div>
+        <div>
+          <span class="stat-label">Оценка</span>
+          <strong class="{% if s >= 0.75 %}score-good{% elif s >= 0.3 %}score-mid{% else %}score-low{% endif %}">{{ s }}</strong>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Ручная оценка | Project HR{% endblock %}
+
+{% block content %}
+<section class="section" style="margin-top: 0;">
+  <div class="section-head">
+    <div>
+      <h2>Ручная оценка кандидата</h2>
+      <p class="section-note">HR может ввести ответы кандидата самостоятельно, например после устного интервью.</p>
+    </div>
+    <a class="btn" href="{{ url_for('dashboard') }}">Назад в панель</a>
+  </div>
+
+  {% if questions %}
+    <form method="POST" class="form-card form-grid">
+      {% for q in questions %}
+        <div class="field card">
+          <label for="answer{{ q[0] }}">{{ loop.index }}. {{ q[1] }}</label>
+          <textarea id="answer{{ q[0] }}" name="answer{{ q[0] }}" rows="5" maxlength="2500" required placeholder="Введите ответ кандидата..."></textarea>
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary">Оценить кандидата</button>
+    </form>
+  {% else %}
+    <div class="card card-shadow">
+      <h3>Вопросы ещё не готовы</h3>
+      <p>Дождитесь генерации вопросов или создайте демо-набор данных.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

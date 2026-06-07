@@ -1436,6 +1436,8 @@ def get_dashboard_data():
                 vacancy_id, title, created_at, status = row
                 cur.execute('SELECT COUNT(*) FROM test_session WHERE vacancy_id = %s', (vacancy_id,))
                 candidates = cur.fetchone()[0] or 0
+                cur.execute('SELECT COUNT(*) FROM question WHERE vacancy_id = %s', (vacancy_id,))
+                question_count = cur.fetchone()[0] or 0
                 cur.execute('''
                     SELECT AVG(a.score)
                     FROM answer a
@@ -1450,6 +1452,7 @@ def get_dashboard_data():
                     'created_at': format_display_date(created_at),
                     'status': status,
                     'candidates': candidates,
+                    'question_count': question_count,
                     'avg_score': round(float(avg_score), 2) if avg_score is not None else None,
                 })
 
@@ -1730,6 +1733,132 @@ def demo():
 def dashboard():
     vacancies, stats = get_dashboard_data()
     return render_template('dashboard.html', vacancies=vacancies, stats=stats)
+
+
+@app.route('/vacancy/<int:vacancy_id>/questions', methods=['GET', 'POST'])
+@login_required
+def vacancy_questions(vacancy_id):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('SELECT id, title, status FROM vacancy WHERE id = %s', (vacancy_id,))
+            vacancy = cur.fetchone()
+            if not vacancy:
+                flash('Вакансия не найдена.', 'error')
+                return redirect(url_for('dashboard'))
+
+            if request.method == 'POST':
+                skill = re.sub(r'\s+', ' ', (request.form.get('skill') or '').strip())[:128]
+                question_text = re.sub(r'\s+', ' ', (request.form.get('question') or '').strip())
+                importance = clamp_importance(request.form.get('importance'), 3)
+
+                if len(question_text) < 12:
+                    flash('Введите полный текст вопроса.', 'error')
+                    return redirect(url_for('vacancy_questions', vacancy_id=vacancy_id))
+
+                cur.execute(
+                    'INSERT INTO question (vacancy_id, skill, question, importance) VALUES (%s, %s, %s, %s)',
+                    (vacancy_id, skill or 'Вопрос HR', question_text[:1000], importance),
+                )
+                cur.execute("UPDATE vacancy SET status = 'Готово' WHERE id = %s", (vacancy_id,))
+                conn.commit()
+                flash('Вопрос добавлен в тест кандидата.', 'success')
+                return redirect(url_for('vacancy_questions', vacancy_id=vacancy_id))
+
+            cur.execute(
+                '''
+                    SELECT q.id, q.skill, q.question, q.importance, COUNT(a.id) AS answer_count
+                    FROM question q
+                    LEFT JOIN answer a ON a.question_id = q.id
+                    WHERE q.vacancy_id = %s
+                    GROUP BY q.id, q.skill, q.question, q.importance
+                    ORDER BY q.id
+                ''',
+                (vacancy_id,),
+            )
+            questions = [
+                {
+                    'id': row[0],
+                    'skill': row[1] or '',
+                    'question': row[2] or '',
+                    'importance': row[3] or 3,
+                    'answer_count': row[4] or 0,
+                }
+                for row in cur.fetchall()
+            ]
+            cur.execute('SELECT COUNT(*) FROM test_session WHERE vacancy_id = %s', (vacancy_id,))
+            candidate_count = cur.fetchone()[0] or 0
+
+        return render_template(
+            'vacancy_questions.html',
+            vacancy={
+                'id': vacancy[0],
+                'title': vacancy[1] or f'Вакансия #{vacancy_id}',
+                'status': vacancy[2],
+            },
+            questions=questions,
+            candidate_count=candidate_count,
+        )
+    finally:
+        conn.close()
+
+
+@app.route('/vacancy/<int:vacancy_id>/questions/<int:question_id>/update', methods=['POST'])
+@login_required
+def update_vacancy_question(vacancy_id, question_id):
+    skill = re.sub(r'\s+', ' ', (request.form.get('skill') or '').strip())[:128]
+    question_text = re.sub(r'\s+', ' ', (request.form.get('question') or '').strip())
+    importance = clamp_importance(request.form.get('importance'), 3)
+
+    if len(question_text) < 12:
+        flash('Введите полный текст вопроса.', 'error')
+        return redirect(url_for('vacancy_questions', vacancy_id=vacancy_id))
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                '''
+                    UPDATE question
+                    SET skill = %s, question = %s, importance = %s
+                    WHERE id = %s AND vacancy_id = %s
+                ''',
+                (skill or 'Вопрос HR', question_text[:1000], importance, question_id, vacancy_id),
+            )
+            conn.commit()
+            flash('Вопрос обновлён.', 'success')
+    finally:
+        conn.close()
+
+    return redirect(url_for('vacancy_questions', vacancy_id=vacancy_id))
+
+
+@app.route('/vacancy/<int:vacancy_id>/questions/<int:question_id>/delete', methods=['POST'])
+@login_required
+def delete_vacancy_question(vacancy_id, question_id):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('SELECT COUNT(*) FROM answer WHERE question_id = %s', (question_id,))
+            answer_count = cur.fetchone()[0] or 0
+            if answer_count:
+                flash('Вопрос уже есть в ответах кандидатов, поэтому его нельзя удалить без потери отчётов.', 'error')
+                return redirect(url_for('vacancy_questions', vacancy_id=vacancy_id))
+
+            cur.execute('DELETE FROM question WHERE id = %s AND vacancy_id = %s', (question_id, vacancy_id))
+            cur.execute('SELECT COUNT(*) FROM question WHERE vacancy_id = %s', (vacancy_id,))
+            remaining = cur.fetchone()[0] or 0
+            cur.execute(
+                "UPDATE vacancy SET status = %s WHERE id = %s",
+                ('Готово' if remaining else 'В работе', vacancy_id),
+            )
+            conn.commit()
+            flash('Вопрос удалён из теста.', 'success')
+    finally:
+        conn.close()
+
+    return redirect(url_for('vacancy_questions', vacancy_id=vacancy_id))
+
 
 @app.route('/vacancy/new', methods=['GET', 'POST'])
 @login_required

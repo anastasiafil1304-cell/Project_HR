@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Вопросы вакансии | Project HR{% endblock %}
+
+{% block content %}
+<section class="section" style="margin-top: 0;">
+  <div class="section-head">
+    <div>
+      <h2>Вопросы вакансии</h2>
+      <p class="section-note">{{ vacancy.title }}. Здесь HR может дополнить тест своими вопросами и настроить важность оценки.</p>
+    </div>
+    <div class="hero-actions" style="margin-top: 0;">
+      <a class="btn" href="{{ url_for('dashboard') }}">Назад в панель</a>
+      <a class="btn btn-primary" href="{{ url_for('candidate_test', vacancy_id=vacancy.id) }}">Открыть тест</a>
+    </div>
+  </div>
+
+  <div class="grid grid-3">
+    <div class="card stat">
+      <span class="stat-number">{{ questions|length }}</span>
+      <span class="stat-label">вопросов в тесте</span>
+    </div>
+    <div class="card stat">
+      <span class="stat-number">{{ candidate_count }}</span>
+      <span class="stat-label">кандидатов прошли тест</span>
+    </div>
+    <div class="card stat">
+      <span class="stat-number">{{ vacancy.status }}</span>
+      <span class="stat-label">статус вакансии</span>
+    </div>
+  </div>
+</section>
+
+<section class="section question-workspace">
+  <div class="card question-add-card">
+    <h3>Добавить вопрос HR</h3>
+    <p class="help">Вопрос сразу попадёт в ссылку кандидата и будет учитываться в итоговой оценке.</p>
+    <form method="POST" class="form-grid">
+      <div class="field">
+        <label for="skill">Компетенция</label>
+        <input id="skill" name="skill" maxlength="128" placeholder="Например: Коммуникация с заказчиком" required>
+      </div>
+      <div class="field">
+        <label for="importance">Важность</label>
+        <select id="importance" name="importance">
+          <option value="5">5 - критично</option>
+          <option value="4">4 - важно</option>
+          <option value="3" selected>3 - средне</option>
+          <option value="2">2 - желательно</option>
+          <option value="1">1 - дополнительный вопрос</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="question">Текст вопроса</label>
+        <textarea id="question" name="question" rows="5" maxlength="1000" required placeholder="Опишите практический вопрос, на который кандидат должен ответить развёрнуто."></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">Добавить в тест</button>
+    </form>
+  </div>
+
+  <div class="question-list">
+    <div class="section-head compact-head">
+      <div>
+        <h2>Текущий набор вопросов</h2>
+        <p class="section-note">Сначала идут вопросы нейросети, затем ручные вопросы HR в порядке добавления.</p>
+      </div>
+    </div>
+
+    {% if questions %}
+      <div class="question-editor-list">
+        {% for q in questions %}
+          <article class="card question-editor">
+            <div class="question-editor-top">
+              <span class="eyebrow">Вопрос {{ loop.index }}</span>
+              <span class="badge {% if q.answer_count %}badge-warning{% else %}badge-success{% endif %}">
+                Ответов: {{ q.answer_count }}
+              </span>
+            </div>
+
+            <form method="POST" action="{{ url_for('update_vacancy_question', vacancy_id=vacancy.id, question_id=q.id) }}" class="form-grid">
+              <div class="question-fields">
+                <div class="field">
+                  <label for="skill{{ q.id }}">Компетенция</label>
+                  <input id="skill{{ q.id }}" name="skill" maxlength="128" value="{{ q.skill }}" required>
+                </div>
+                <div class="field">
+                  <label for="importance{{ q.id }}">Важность</label>
+                  <select id="importance{{ q.id }}" name="importance">
+                    {% for value in [5, 4, 3, 2, 1] %}
+                      <option value="{{ value }}" {% if q.importance == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label for="question{{ q.id }}">Текст вопроса</label>
+                <textarea id="question{{ q.id }}" name="question" rows="4" maxlength="1000" required>{{ q.question }}</textarea>
+              </div>
+              <button class="btn" type="submit">Сохранить вопрос</button>
+            </form>
+
+            <form method="POST" action="{{ url_for('delete_vacancy_question', vacancy_id=vacancy.id, question_id=q.id) }}" onsubmit="return confirm('Удалить вопрос из теста?')">
+              <button class="btn btn-danger btn-full" type="submit" {% if q.answer_count %}disabled title="По этому вопросу уже есть ответы кандидатов"{% endif %}>Удалить вопрос</button>
+            </form>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card card-shadow">
+        <h3>Вопросов пока нет</h3>
+        <p>Добавьте первый вопрос вручную или дождитесь автоматической генерации после создания вакансии.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

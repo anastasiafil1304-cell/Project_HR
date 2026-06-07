@@ -53,7 +53,7 @@
             </span>
           </div>
           <p class="help">Создано: {{ v.created_at or 'неизвестно' }}</p>
-          <p class="help">Кандидатов: {{ v.candidates or 0 }}{% if v.avg_score is not none %} | средняя оценка: {{ v.avg_score }}{% endif %}</p>
+          <p class="help">Вопросов: {{ v.question_count or 0 }} | кандидатов: {{ v.candidates or 0 }}{% if v.avg_score is not none %} | средняя оценка: {{ v.avg_score }}{% endif %}</p>
 
           {% if v.status == 'Готово' %}
             <div class="notice candidate-link" style="margin: 14px 0;">
@@ -70,8 +70,9 @@
 
           <div class="actions">
             <a class="btn {% if v.status == 'Готово' %}btn-primary{% endif %}" href="{{ url_for('candidate_test', vacancy_id=v.id) }}">1. Открыть тест</a>
-            <a class="btn" href="{{ url_for('evaluate_manually', vacancy_id=v.id) }}">2. Ввести ответы вручную</a>
-            <a class="btn" href="{{ url_for('vacancy_result', vacancy_id=v.id) }}">3. Смотреть общий отчёт</a>
+            <a class="btn" href="{{ url_for('vacancy_questions', vacancy_id=v.id) }}">2. Вопросы HR</a>
+            <a class="btn" href="{{ url_for('evaluate_manually', vacancy_id=v.id) }}">3. Ввести ответы вручную</a>
+            <a class="btn" href="{{ url_for('vacancy_result', vacancy_id=v.id) }}">4. Смотреть общий отчёт</a>
             <form method="POST" action="{{ url_for('delete_vacancy', vacancy_id=v.id) }}" onsubmit="return confirm('Удалить вакансию и все связанные результаты?')">
               <button type="submit" class="btn btn-danger btn-full">Удалить</button>
             </form>

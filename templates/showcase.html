@@ -1,0 +1,324 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Обзор процесса | Project HR{% endblock %}
+
+{% block content %}
+<section class="showcase-hero overview-hero">
+  <div class="showcase-hero-text">
+    <span class="eyebrow">Полный цикл HR-скрининга</span>
+    <h1>Project HR создаёт тест и оценивает кандидатов</h1>
+    <p>
+      На странице показан рабочий цикл системы: HR создаёт вакансию, приложение формирует вопросы,
+      кандидат отвечает по ссылке, а нейросеть оценивает ответы и собирает итоговый отчёт для специалиста.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Открыть панель HR</a>
+      <a class="btn" href="{{ url_for('new_vacancy') }}">Создать тест</a>
+      <a class="btn" href="{{ url_for('vacancy_result', vacancy_id=vacancy_id) }}">Открыть итоговый отчёт</a>
+    </div>
+  </div>
+  <div class="showcase-status overview-status">
+    <span class="stat-label">Ключевые показатели</span>
+    <h3>{{ vacancy.title if vacancy else 'Вакансия' }}</h3>
+    <div class="overview-metrics">
+      <div>
+        <strong>{{ overview_metrics.skill_count }}</strong>
+        <span>вопросов по навыкам</span>
+      </div>
+      <div>
+        <strong>{{ overview_metrics.candidate_count }}</strong>
+        <span>кандидата в сравнении</span>
+      </div>
+      <div>
+        <strong>{{ overview_metrics.best_score }}</strong>
+        <span>лучший итоговый балл</span>
+      </div>
+      <div>
+        <strong>{{ overview_metrics.invite_count }}</strong>
+        <span>рекомендация к собеседованию</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section overview-plan">
+  <div class="section-head">
+    <div>
+      <h2>Рабочий процесс</h2>
+      <p class="section-note">Основные этапы, через которые проходит вакансия от требований до решения по кандидатам.</p>
+    </div>
+  </div>
+  <div class="showcase-route overview-route">
+    <article class="route-step">
+      <span>01</span>
+      <h3>Подготовить вакансию</h3>
+      <p>HR вводит требования или выбирает готовую должность, чтобы система определила ключевые компетенции.</p>
+      <a class="step-link" href="{{ url_for('new_vacancy') }}">Открыть форму</a>
+    </article>
+    <article class="route-step">
+      <span>02</span>
+      <h3>Сформировать вопросы</h3>
+      <p>Приложение создаёт вопросы по навыкам и задаёт важность каждого пункта для итоговой оценки.</p>
+      <a class="step-link" href="{{ url_for('dashboard') }}">Панель HR</a>
+    </article>
+    <article class="route-step">
+      <span>03</span>
+      <h3>Пройти тест</h3>
+      <p>Кандидат открывает персональную ссылку и отвечает на вопросы без доступа к внутренней панели HR.</p>
+      <a class="step-link" href="{{ url_for('candidate_test', vacancy_id=vacancy_id) }}">Открыть тест</a>
+    </article>
+    <article class="route-step">
+      <span>04</span>
+      <h3>Получить отчёт</h3>
+      <p>HR видит общий балл, рекомендации, сильные стороны и ответы по каждому вопросу.</p>
+      <a class="step-link" href="{{ url_for('vacancy_result', vacancy_id=vacancy_id) }}">Открыть отчёт</a>
+    </article>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Варианты генерации вакансий и вопросов</h2>
+      <p class="section-note">Один и тот же механизм формирует разные наборы навыков и вопросов под конкретную роль.</p>
+    </div>
+    <a class="btn" href="{{ url_for('new_vacancy') }}">Открыть генератор</a>
+  </div>
+  <div class="generation-grid">
+    {% for variant in generation_variants %}
+      <article class="generation-card">
+        <div class="generation-card-head">
+          <div>
+            <span class="stat-label">Профиль вопросов</span>
+            <h3>{{ variant.title }}</h3>
+          </div>
+          <a class="step-link" href="{{ url_for('new_vacancy') }}?preset={{ variant.key }}">Создать</a>
+        </div>
+        <p>{{ variant.description }}</p>
+        <div class="skill-chip-list">
+          {% for skill in variant.skills %}
+            <span>{{ skill }}</span>
+          {% endfor %}
+        </div>
+        <div class="generated-questions">
+          {% for question in variant.questions %}
+            <div>
+              <strong>{{ question.skill }}</strong>
+              <p>{{ question.question }}</p>
+            </div>
+          {% endfor %}
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section overview-board">
+  <div class="section-head">
+    <div>
+      <h2>Описание процесса</h2>
+      <p class="section-note">Краткое объяснение логики работы системы внутри одного HR-сценария.</p>
+    </div>
+  </div>
+  <div class="process-script">
+    <article class="script-card script-main">
+      <span class="stat-label">Как работает Project HR</span>
+      <ol class="script-list">
+        <li>Project HR помогает HR-специалисту быстро подготовить первичный технический скрининг кандидата.</li>
+        <li>HR вводит вакансию или выбирает готовую должность, после чего система выделяет ключевые навыки.</li>
+        <li>Нейросеть формирует вопросы по реальным компетенциям: Python, SQL, Docker, тестирование и коммуникация.</li>
+        <li>Кандидат проходит тест по ссылке, а HR видит сравнение ответов, общий балл и рекомендацию по каждому человеку.</li>
+        <li>Главная польза: меньше ручной проверки, прозрачная оценка и быстрый выбор кандидата для следующего этапа.</li>
+      </ol>
+    </article>
+    <article class="script-card">
+      <span class="stat-label">Основные экраны</span>
+      <div class="screen-cue">
+        <strong>1. Панель HR</strong>
+        <p>Вакансии, статусы, ссылки для кандидатов и быстрый переход к результатам.</p>
+      </div>
+      <div class="screen-cue">
+        <strong>2. Создание теста</strong>
+        <p>Готовые варианты должностей, текст требований и профиль вопросов.</p>
+      </div>
+      <div class="screen-cue">
+        <strong>3. Итоговый отчёт</strong>
+        <p>Система объясняет, почему один кандидат подходит лучше другого.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="section overview-decision-section">
+  <div class="section-head">
+    <div>
+      <h2>Результат оценки кандидатов</h2>
+      <p class="section-note">Итоговый блок показывает, как приложение помогает принять решение по следующему этапу отбора.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('vacancy_result', vacancy_id=vacancy_id) }}">Открыть полный отчёт</a>
+  </div>
+  <div class="overview-decision-grid">
+    {% if best_result %}
+      <article class="decision-card decision-good">
+        <span class="stat-label">Лучший кандидат</span>
+        <div class="decision-head">
+          <h3>{{ best_result.name }}</h3>
+          <strong>{{ best_result.score }}</strong>
+        </div>
+        <p>{{ best_result.summary }}</p>
+        <a class="btn btn-primary btn-full" href="{{ url_for('test_result', session_id=best_result.session_id) }}">Открыть проверку ответов</a>
+      </article>
+    {% endif %}
+    {% if review_result %}
+      <article class="decision-card decision-review">
+        <span class="stat-label">Нужна дополнительная проверка</span>
+        <div class="decision-head">
+          <h3>{{ review_result.name }}</h3>
+          <strong>{{ review_result.score }}</strong>
+        </div>
+        <p>{{ review_result.summary }}</p>
+        <a class="btn btn-full" href="{{ url_for('test_result', session_id=review_result.session_id) }}">Открыть ответы</a>
+      </article>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Как работает нейросеть</h2>
+      <p class="section-note">Схема показывает, какую часть процесса автоматизирует модель и что остаётся под контролем HR.</p>
+    </div>
+  </div>
+  <div class="ai-flow">
+    <article class="ai-flow-card">
+      <span class="flow-index">01</span>
+      <h3>Читает вакансию</h3>
+      <p>Из текста требований выделяются реальные навыки и уровень важности каждого навыка.</p>
+    </article>
+    <article class="ai-flow-card">
+      <span class="flow-index">02</span>
+      <h3>Создаёт вопросы</h3>
+      <p>По каждому навыку формируется вопрос, который проверяет опыт, ход решения и качество объяснения.</p>
+    </article>
+    <article class="ai-flow-card">
+      <span class="flow-index">03</span>
+      <h3>Сравнивает ответы</h3>
+      <p>Ответ кандидата оценивается по смыслу, полноте и соответствию вопросу, после чего ставится балл.</p>
+    </article>
+    <article class="ai-flow-card">
+      <span class="flow-index">04</span>
+      <h3>Даёт вывод HR</h3>
+      <p>HR получает сводку: кого звать дальше, где есть сильные стороны и где нужны уточнения.</p>
+    </article>
+  </div>
+  <div class="notice showcase-note">
+    Если локальная модель недоступна, приложение использует резервную проверку по ключевым признакам ответа.
+    Поэтому результат остаётся доступным в интерфейсе.
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Проверка качества ответов</h2>
+      <p class="section-note">Система отличает подробный профессиональный ответ от общего ответа без конкретики.</p>
+    </div>
+  </div>
+  <div class="evaluation-grid">
+    {% for example in evaluation_examples %}
+      <article class="evaluation-card evaluation-{{ example.tone }}">
+        <div class="evaluation-head">
+          <div>
+            <span class="stat-label">{{ example.title }}</span>
+            <h3>{{ example.question }}</h3>
+          </div>
+          <strong>{{ example.score }}</strong>
+        </div>
+        <p class="answer-preview">{{ example.answer }}</p>
+        <div class="evaluation-note">{{ example.conclusion }}</div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Быстрые действия</h2>
+      <p class="section-note">Переходы ведут прямо в основные рабочие экраны: панель, создание теста, форма кандидата и отчёт.</p>
+    </div>
+  </div>
+  <div class="showcase-actions overview-actions">
+    <a class="action-tile" href="{{ url_for('dashboard') }}">
+      <span>Раздел 1</span>
+      <strong>Панель HR</strong>
+      <em>Вакансии, статусы и общий рабочий экран специалиста</em>
+    </a>
+    <a class="action-tile" href="{{ url_for('new_vacancy') }}">
+      <span>Раздел 2</span>
+      <strong>Создание теста</strong>
+      <em>Готовые должности, автозаполнение требований и выбор профиля вопросов</em>
+    </a>
+    <a class="action-tile" href="{{ url_for('candidate_test', vacancy_id=vacancy_id) }}">
+      <span>Раздел 3</span>
+      <strong>Ссылка кандидата</strong>
+      <em>{{ request.host_url.rstrip('/') }}/test/{{ vacancy_id }}</em>
+    </a>
+    <a class="action-tile" href="{{ url_for('vacancy_result', vacancy_id=vacancy_id) }}">
+      <span>Раздел 4</span>
+      <strong>Итоговый отчёт</strong>
+      <em>Сравнение кандидатов, баллы и рекомендации для HR</em>
+    </a>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Вопросы, которые создала система</h2>
+      <p class="section-note">Так видно, как текст вакансии превращается в структурированный тест.</p>
+    </div>
+  </div>
+  <div class="question-preview-grid">
+    {% for question in questions %}
+      <article class="question-preview">
+        <div class="question-preview-head">
+          <span class="badge badge-success">{{ question.skill }}</span>
+          <strong>Важность: {{ question.importance }}</strong>
+        </div>
+        <p>{{ question.question }}</p>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Как система смотрит ответы</h2>
+      <p class="section-note">Два кандидата уже прошли тест, поэтому можно сразу открыть подробную проверку.</p>
+    </div>
+  </div>
+  <div class="candidate-showcase">
+    {% for result in results %}
+      {% set score_class = 'score-good' if result.score >= 0.75 else ('score-mid' if result.score >= 0.3 else 'score-low') %}
+      <article class="candidate-summary">
+        <div class="candidate-summary-head">
+          <div>
+            <span class="stat-label">Кандидат</span>
+            <h3>{{ result.name }}</h3>
+          </div>
+          <strong class="score-pill {{ score_class }}">{{ result.score }}</strong>
+        </div>
+        <p class="summary-preview">{{ result.summary }}</p>
+        <div class="candidate-meta">
+          <span>{{ result.answer_count }} ответов</span>
+          <span>{{ result.date }}</span>
+        </div>
+        <a class="btn btn-primary btn-full" href="{{ url_for('test_result', session_id=result.session_id) }}">Открыть ответы кандидата</a>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

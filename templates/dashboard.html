@@ -10,7 +10,7 @@
       <p class="section-note">Вакансии, ссылки для кандидатов и результаты первичного отбора.</p>
     </div>
     <div class="hero-actions" style="margin-top: 0;">
-      <a class="btn" href="{{ url_for('demo') }}">Обновить демо</a>
+      <a class="btn" href="{{ url_for('showcase') }}">Открыть обзор процесса</a>
       <a class="btn btn-primary" href="{{ url_for('new_vacancy') }}">Создать вакансию</a>
     </div>
   </div>
@@ -37,6 +37,12 @@
 
 <section class="section">
   {% if vacancies %}
+    <div class="notice quick-panel">
+      <div>
+        <strong>Как читать карточку вакансии</strong>
+        <p>Сначала скопируйте ссылку кандидату, затем откройте тест или ручную оценку, после прохождения смотрите общий отчёт.</p>
+      </div>
+    </div>
     <div class="vacancy-grid">
       {% for v in vacancies %}
         <article class="card vacancy-card">
@@ -50,8 +56,9 @@
           <p class="help">Кандидатов: {{ v.candidates or 0 }}{% if v.avg_score is not none %} | средняя оценка: {{ v.avg_score }}{% endif %}</p>
 
           {% if v.status == 'Готово' %}
-            <div class="notice" style="margin: 14px 0;">
-              Ссылка для кандидата: <strong>{{ request.host_url.rstrip('/') }}/test/{{ v.id }}</strong>
+            <div class="notice candidate-link" style="margin: 14px 0;">
+              <span>Ссылка кандидату</span>
+              <strong>{{ request.host_url.rstrip('/') }}/test/{{ v.id }}</strong>
             </div>
           {% else %}
             <div class="notice notice-warning" style="margin: 14px 0;">
@@ -60,9 +67,9 @@
           {% endif %}
 
           <div class="actions">
-            <a class="btn {% if v.status == 'Готово' %}btn-primary{% endif %}" href="{{ url_for('candidate_test', vacancy_id=v.id) }}">Открыть тест</a>
-            <a class="btn" href="{{ url_for('evaluate_manually', vacancy_id=v.id) }}">Ручная оценка</a>
-            <a class="btn" href="{{ url_for('vacancy_result', vacancy_id=v.id) }}">Общий отчёт</a>
+            <a class="btn {% if v.status == 'Готово' %}btn-primary{% endif %}" href="{{ url_for('candidate_test', vacancy_id=v.id) }}">1. Открыть тест</a>
+            <a class="btn" href="{{ url_for('evaluate_manually', vacancy_id=v.id) }}">2. Ввести ответы вручную</a>
+            <a class="btn" href="{{ url_for('vacancy_result', vacancy_id=v.id) }}">3. Смотреть общий отчёт</a>
             <form method="POST" action="{{ url_for('delete_vacancy', vacancy_id=v.id) }}" onsubmit="return confirm('Удалить вакансию и все связанные результаты?')">
               <button type="submit" class="btn btn-danger btn-full">Удалить</button>
             </form>
@@ -73,9 +80,9 @@
   {% else %}
     <div class="card card-shadow" style="text-align: center; padding: 34px;">
       <h3>Вакансий пока нет</h3>
-      <p>Создайте первую вакансию вручную или подготовьте демо-данные для защиты.</p>
+      <p>Создайте первую вакансию вручную или откройте рабочий пример с уже заполненными результатами.</p>
       <div class="hero-actions" style="justify-content: center;">
-        <a class="btn btn-primary" href="{{ url_for('demo') }}">Запустить демо</a>
+        <a class="btn btn-primary" href="{{ url_for('showcase') }}">Открыть обзор процесса</a>
         <a class="btn" href="{{ url_for('new_vacancy') }}">Создать вакансию</a>
       </div>
     </div>

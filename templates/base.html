@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Project HR{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=overview-20260607">
 </head>
 <body>
   <header class="topbar">
@@ -19,7 +19,7 @@
       <nav class="nav">
         <a class="nav-link" href="{{ url_for('home') }}">Главная</a>
         <a class="nav-link" href="{{ url_for('docs') }}">Документация</a>
-        <a class="nav-link" href="{{ url_for('demo') }}">Демо</a>
+        <a class="nav-link" href="{{ url_for('showcase') }}">Обзор процесса</a>
         {% if session.user_id %}
           <a class="nav-link" href="{{ url_for('dashboard') }}">Панель HR</a>
           <a class="nav-link" href="{{ url_for('logout') }}">Выйти</a>
@@ -48,8 +48,8 @@
 
   <footer class="footer">
     <div class="shell footer-inner">
-      <span>Project HR, 2026. Дипломный демонстрационный стенд.</span>
-      <span>SQLite fallback, PostgreSQL, AI/fallback-оценка</span>
+      <span>Project HR, 2026. Система HR-скрининга кандидатов.</span>
+      <span>SQLite, PostgreSQL, AI-оценка и резервная логика</span>
     </div>
   </footer>
 </body>

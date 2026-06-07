@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+﻿from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 import os
 import sqlite3
@@ -87,12 +87,13 @@ DB_CONFIG = {
 
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'mistral')
 OLLAMA_ENABLED = env_flag('OLLAMA_ENABLED', '1')
+OLLAMA_TIMEOUT = float(os.getenv('OLLAMA_TIMEOUT', '6'))
 MAX_ANSWER_LENGTH = int(os.getenv('MAX_ANSWER_LENGTH', '2500'))
 DB_READY = False
 
 DEMO_EMAIL = 'demo.hr@project.local'
 DEMO_PASSWORD = 'Demo12345'
-DEMO_VACANCY_TITLE = 'Python Backend Developer — демонстрационная вакансия'
+DEMO_VACANCY_TITLE = 'Python Backend Developer'
 DEMO_VACANCY_TEXT = '''Middle Python backend developer
 
 Задачи:
@@ -141,6 +142,115 @@ DEMO_CANDIDATES = [
     },
 ]
 
+SHOWCASE_GENERATION_SPECS = [
+    {
+        'key': 'python',
+        'title': 'Python Backend Developer',
+        'profile': 'balanced',
+        'description': 'Backend-разработка REST API, работа с базой данных, контейнеризация и тестирование.',
+        'text': DEMO_VACANCY_TEXT,
+    },
+    {
+        'key': 'frontend',
+        'title': 'Frontend Developer React/TypeScript',
+        'profile': 'case',
+        'description': 'Клиентские интерфейсы, формы, таблицы, адаптивная верстка и интеграция с REST API.',
+        'text': '''Frontend Developer React/TypeScript
+
+Задачи:
+- разработка личного кабинета и административных интерфейсов;
+- работа с React, TypeScript, формами, таблицами и фильтрами;
+- интеграция с REST API;
+- оптимизация скорости загрузки и удобства интерфейса;
+- участие в дизайн-ревью и исправлении UI-ошибок.
+
+Требования:
+- React, TypeScript, HTML, CSS;
+- понимание состояния приложения и клиентской маршрутизации;
+- опыт адаптивной верстки;
+- умение тестировать интерфейс и объяснять технические решения.
+''',
+    },
+    {
+        'key': 'qa',
+        'title': 'QA Engineer',
+        'profile': 'junior',
+        'description': 'Проверка пользовательских сценариев, тест-кейсы, баг-репорты и регресс.',
+        'text': '''QA Engineer
+
+Задачи:
+- тестирование веб-приложений и пользовательских сценариев;
+- составление чек-листов и тест-кейсов;
+- оформление баг-репортов;
+- проверка исправлений и регресс-тестирование;
+- взаимодействие с разработчиками и аналитиками.
+
+Требования:
+- понимание видов тестирования;
+- опыт работы с DevTools, Postman или аналогами;
+- базовое понимание SQL;
+- внимательность, структурное мышление и аккуратная коммуникация.
+''',
+    },
+    {
+        'key': 'data',
+        'title': 'Data Analyst',
+        'profile': 'case',
+        'description': 'SQL, отчёты, BI-дашборды, качество данных и понятные выводы для бизнеса.',
+        'text': '''Data Analyst
+
+Задачи:
+- сбор и обработка данных из разных источников;
+- построение отчётов и дашбордов;
+- анализ продуктовых и бизнес-метрик;
+- поиск причин отклонений в данных;
+- подготовка понятных выводов для руководителя.
+
+Требования:
+- SQL, Excel, базовая статистика;
+- Power BI, Tableau или аналогичные BI-инструменты;
+- умение проверять качество данных;
+- способность объяснять выводы простым языком.
+''',
+    },
+    {
+        'key': 'devops',
+        'title': 'DevOps Engineer',
+        'profile': 'senior',
+        'description': 'CI/CD, Docker, Linux, мониторинг, релизы и надёжность сервисов.',
+        'text': '''DevOps Engineer
+
+Задачи:
+- настройка CI/CD для веб-сервисов;
+- контейнеризация приложений через Docker и docker compose;
+- настройка Linux-серверов, nginx и переменных окружения;
+- мониторинг доступности и логирование ошибок;
+- безопасный выпуск релизов и откат изменений.
+
+Требования:
+- Linux, Bash, Docker, GitLab CI или GitHub Actions;
+- понимание сетей, портов и reverse proxy;
+- опыт диагностики инцидентов;
+- умение описывать риски и план восстановления.
+''',
+    },
+]
+
+SHOWCASE_EVALUATION_EXAMPLES = [
+    {
+        'title': 'Сильный ответ',
+        'tone': 'good',
+        'question': 'Как бы вы нашли и оптимизировали медленный SQL-запрос в PostgreSQL?',
+        'answer': 'Сначала посмотрю EXPLAIN ANALYZE, проверю индексы, фильтры и объём строк. Затем сравню план выполнения, добавлю нужный индекс или перепишу JOIN. После изменения измерю время запроса и проверю, что результат не изменился.',
+    },
+    {
+        'title': 'Слабый ответ',
+        'tone': 'weak',
+        'question': 'Как бы вы нашли и оптимизировали медленный SQL-запрос в PostgreSQL?',
+        'answer': 'Попробую добавить индекс и посмотреть, стало ли лучше. Если не получится, спрошу у более опытного разработчика.',
+    },
+]
+
 
 def get_ollama_client():
     global OLLAMA_CLIENT, OLLAMA_IMPORT_FAILED
@@ -155,7 +265,11 @@ def get_ollama_client():
         return None
 
     try:
-        OLLAMA_CLIENT = importlib.import_module('ollama')
+        ollama_module = importlib.import_module('ollama')
+        if hasattr(ollama_module, 'Client'):
+            OLLAMA_CLIENT = ollama_module.Client(timeout=OLLAMA_TIMEOUT)
+        else:
+            OLLAMA_CLIENT = ollama_module
         return OLLAMA_CLIENT
     except ImportError:
         OLLAMA_IMPORT_FAILED = True
@@ -363,6 +477,28 @@ OFF_TOPIC_STEMS = {
     'спал', 'гуля', 'смотрел', 'мультик', 'песн', 'шутк', 'бред'
 }
 
+ACTION_RELEVANCE_STEMS = {
+    'анализ', 'провер', 'сравн', 'созд', 'настро', 'раздел', 'проектир', 'измер',
+    'исправ', 'оптимиз', 'перепиш', 'добав', 'валид', 'логир', 'тестир', 'декомпоз',
+    'объясн', 'соглас', 'документ', 'контейнериз', 'интегрир', 'монитор'
+}
+
+RESULT_RELEVANCE_STEMS = {
+    'результат', 'метрик', 'скорост', 'надёж', 'качест', 'срок', 'рис', 'план',
+    'производител', 'безопас', 'поддерж', 'откат', 'проверка', 'вывод'
+}
+
+STRUCTURE_MARKERS = [
+    'сначала', 'затем', 'после', 'после этого', 'на первом шаге', 'в итоге',
+    'проверю', 'измерю', 'сравню', 'объясню', 'зафиксирую'
+]
+
+TECHNICAL_MARKERS = {
+    'api', 'rest', 'sql', 'postgresql', 'postgres', 'index', 'join', 'explain', 'docker',
+    'compose', 'linux', 'nginx', 'ci/cd', 'git', 'react', 'typescript', 'pytest', 'unit',
+    'integration', 'devtools', 'postman', 'dashboard', 'bi', 'excel', 'redis', 'jwt'
+}
+
 
 def tokenize_text(value):
     return re.findall(r'[a-zA-Zа-яА-Я0-9+#.-]+', (value or '').lower())
@@ -407,6 +543,16 @@ def count_stem_matches(tokens, stems):
                 matched.add(token)
                 break
     return len(matched)
+
+
+def count_exact_marker_matches(tokens, markers):
+    token_set = set(tokens)
+    return sum(1 for marker in markers if marker in token_set)
+
+
+def count_phrase_matches(text, phrases):
+    normalized = normalize_skill_text(text)
+    return sum(1 for phrase in phrases if phrase in normalized)
 
 
 def count_soft_overlap(answer_tokens, question_tokens):
@@ -508,25 +654,50 @@ def fallback_evaluate_answer(question, answer):
 
     answer_tokens = keyword_tokens(normalized_answer)
     question_tokens = keyword_tokens(question)
+    normalized_lower = normalize_skill_text(normalized_answer)
 
     overlap = count_relevant_overlap(answer_tokens, question_tokens)
     overlap_ratio = overlap / max(1, len(set(question_tokens))) if question_tokens else 0
+    professional_hits = count_stem_matches(answer_tokens, PROFESSIONAL_RELEVANCE_STEMS)
+    action_hits = count_stem_matches(answer_tokens, ACTION_RELEVANCE_STEMS)
+    result_hits = count_stem_matches(answer_tokens, RESULT_RELEVANCE_STEMS)
+    technical_hits = count_exact_marker_matches(answer_tokens, TECHNICAL_MARKERS)
+    structure_hits = count_phrase_matches(normalized_lower, STRUCTURE_MARKERS)
 
-    score = 0.15
-    score += min(0.2, len(answer_tokens) * 0.03)
+    score = 0.12
+    score += min(0.2, len(answer_tokens) * 0.014)
 
     if question_tokens:
-        score += min(0.55, overlap_ratio * 0.75)
+        score += min(0.28, overlap_ratio * 0.6)
         if overlap == 0:
-            score -= 0.25
+            score -= 0.18
     else:
         score += 0.15
+
+    score += min(0.2, professional_hits * 0.035)
+    score += min(0.14, action_hits * 0.04)
+    score += min(0.1, result_hits * 0.04)
+    score += min(0.1, technical_hits * 0.035)
+    score += min(0.08, structure_hits * 0.03)
 
     if any(token.isdigit() for token in answer_tokens):
         score += 0.05
 
-    if len(answer_tokens) >= 8:
+    if len(answer_tokens) >= 14 and action_hits >= 2:
         score += 0.05
+    if len(answer_tokens) >= 24 and result_hits >= 1:
+        score += 0.06
+    if len(answer_tokens) >= 34 and technical_hits >= 2:
+        score += 0.05
+
+    if len(answer_tokens) < 8:
+        max_score = min(max_score, 0.45)
+    if professional_hits <= 1 and action_hits <= 1:
+        max_score = min(max_score, 0.55)
+    if technical_hits == 0 and overlap <= 1 and len(answer_tokens) < 18:
+        max_score = min(max_score, 0.42)
+    if score >= 0.75 and result_hits == 0 and structure_hits == 0:
+        score = min(score, 0.72)
 
     return max(-1.0, min(max_score, round(score, 2)))
 
@@ -567,18 +738,45 @@ def fallback_extract_skills(text):
         return skills[:5]
     return ['Профильный опыт', 'Работа с данными', 'Коммуникация']
 
+def infer_competency_label(question):
+    text = normalize_skill_text(question)
+    labels = [
+        ('SQL и работа с данными', ['sql', 'postgresql', 'запрос', 'данн']),
+        ('архитектура backend', ['flask', 'api', 'backend', 'бизнес-логик']),
+        ('контейнеризация', ['docker', 'контейнер', 'окружен']),
+        ('тестирование', ['тест', 'регистрац', 'авторизац']),
+        ('коммуникация', ['заказчик', 'объясн', 'задержк', 'план']),
+        ('качество интерфейса', ['интерфейс', 'react', 'frontend', 'верстк']),
+        ('аналитика', ['метрик', 'дашборд', 'bi', 'отчёт']),
+        ('эксплуатация', ['linux', 'ci/cd', 'nginx', 'релиз', 'монитор']),
+    ]
+    for label, markers in labels:
+        if any(marker in text for marker in markers):
+            return label
+    return 'профильная компетенция'
+
+
 def fallback_candidate_summary(answers, score):
-    strong_answers = [question for question, _, answer_score, _ in answers if float(answer_score) >= 0.75]
-    weak_answers = [question for question, _, answer_score, _ in answers if float(answer_score) < 0.3]
-    verdict = 'Кандидат в целом подходит для следующего этапа.' if score >= 0.6 else 'Кандидату требуется дополнительная проверка на следующем этапе.'
-    strengths = ', '.join(strong_answers[:2]) if strong_answers else 'сильные ответы не выявлены'
-    weaknesses = ', '.join(weak_answers[:2]) if weak_answers else 'критичных провалов не выявлено'
+    strong_answers = [infer_competency_label(question) for question, _, answer_score, _ in answers if float(answer_score) >= 0.75]
+    weak_answers = [infer_competency_label(question) for question, _, answer_score, _ in answers if float(answer_score) < 0.45]
+    if score >= 0.78:
+        verdict = 'кандидат уверенно подходит для следующего этапа.'
+        recommendation = 'пригласить на техническое интервью и проверить глубину опыта на реальном кейсе.'
+    elif score >= 0.55:
+        verdict = 'кандидат частично соответствует роли, но требует уточнений.'
+        recommendation = 'провести короткое интервью по слабым зонам перед следующим этапом.'
+    else:
+        verdict = 'кандидату требуется дополнительная проверка перед продолжением отбора.'
+        recommendation = 'не принимать решение без дополнительного интервью и практического задания.'
+
+    strengths = ', '.join(dict.fromkeys(strong_answers[:3])) if strong_answers else 'сильные компетенции пока не подтверждены'
+    weaknesses = ', '.join(dict.fromkeys(weak_answers[:3])) if weak_answers else 'критичных провалов не выявлено'
     return (
         f"Итоговая оценка: {round(score, 2)}\n"
         f"Вывод: {verdict}\n"
         f"Сильные стороны: {strengths}.\n"
         f"Зоны риска: {weaknesses}.\n"
-        "Рекомендация: используйте итог как предварительный скрининг и подтвердите вывод интервью с HR или техспециалистом."
+        f"Рекомендация: {recommendation}"
     )
 
 def get_ollama_status():
@@ -668,7 +866,7 @@ FALLBACK_SKILL_RULES = [
     ('DevOps/CI-CD', 4, ['ci/cd', 'cicd', 'gitlab ci', 'github actions', 'jenkins', 'deploy', 'деплой', 'nginx']),
     ('Linux и администрирование', 4, ['linux', 'bash', 'shell', 'ubuntu', 'debian', 'centos', 'администрирование']),
     ('Git и командная работа', 3, ['git', 'github', 'gitlab', 'merge request', 'pull request', 'code review']),
-    ('Тестирование и качество', 4, ['qa', 'test', 'тестирование', 'pytest', 'unittest', 'selenium', 'playwright', 'автотест']),
+    ('Тестирование и качество', 5, ['qa', 'test', 'тестирование', 'pytest', 'unittest', 'selenium', 'playwright', 'автотест']),
     ('Безопасность', 4, ['security', 'безопасность', 'auth', 'jwt', 'oauth', 'шифрование', 'уязвимость']),
     ('Аналитика данных', 4, ['аналитик', 'analytics', 'bi', 'power bi', 'tableau', 'excel', 'метрики', 'дашборд']),
     ('ML/AI', 4, ['machine learning', 'ml', 'ai', 'нейросеть', 'llm', 'nlp', 'computer vision', 'модель']),
@@ -729,112 +927,360 @@ def fallback_extract_skills(text):
     return [{'name': item['name'], 'importance': item['importance']} for item in skills[:7]]
 
 
-def fallback_question_for_skill(skill, index):
+QUESTION_PROFILE_LABELS = {
+    'balanced': 'смешанный профиль: опыт, практические решения и коммуникация',
+    'case': 'практические кейсы: диагностика, выбор решения и проверка результата',
+    'junior': 'junior/middle: базовые знания, типовые задачи и понятность объяснения',
+    'senior': 'senior/lead: архитектура, риски, trade-offs, качество и наставничество',
+}
+
+QUESTION_PROFILE_TEMPLATES = {
+    'balanced': [
+        'Опишите реальный проект или задачу по направлению «{skill}». Какой был результат и ваша зона ответственности?',
+        'Представьте, что в задаче по направлению «{skill}» появилась нестабильная ошибка. Как вы будете диагностировать причину и проверять исправление?',
+        'Какие типичные ошибки в направлении «{skill}» вы встречали? Как вы их предотвращаете?',
+        'Как бы вы объяснили выбор подхода или инструмента для задачи в области «{skill}»: какие плюсы, ограничения и альтернативы учли бы?',
+        'Расскажите о ситуации, где вам пришлось улучшать качество, скорость или надежность решения в области «{skill}».',
+    ],
+    'case': [
+        'В проекте возникла проблема в области «{skill}». Какие первые три шага диагностики вы выполните и какие данные соберёте?',
+        'Предложите решение практической задачи в области «{skill}»: как построите план, проверите результат и снизите риск ошибки?',
+        'Опишите кейс, где неверное использование направления «{skill}» могло привести к сбою. Как бы вы нашли и исправили причину?',
+        'Как вы будете сравнивать два варианта решения задачи в области «{skill}»: какие критерии и метрики возьмёте?',
+        'Что вы сделаете, если решение в области «{skill}» работает локально, но ломается в рабочей среде?',
+    ],
+    'junior': [
+        'Объясните основные принципы направления «{skill}» простыми словами и приведите пример задачи, где это применяется.',
+        'Какие базовые ошибки новичков в направлении «{skill}» вы знаете и как будете их избегать?',
+        'Опишите небольшой учебный или рабочий пример, где вы применяли «{skill}». Что именно сделали сами?',
+        'Какие вопросы вы зададите наставнику, если задача в области «{skill}» непонятна или требований не хватает?',
+        'Как вы проверите, что выполненная вами задача в области «{skill}» работает корректно?',
+    ],
+    'senior': [
+        'Как вы спроектируете решение в области «{skill}», чтобы оно масштабировалось и оставалось поддерживаемым?',
+        'Какие риски, ограничения и компромиссы вы учитываете при выборе подхода в области «{skill}»?',
+        'Как вы организуете ревью, стандарты и передачу знаний команде по направлению «{skill}»?',
+        'Опишите случай, где вам пришлось менять архитектурное решение в области «{skill}». Что стало причиной и результатом?',
+        'Какие метрики качества и надежности вы будете отслеживать для решения в области «{skill}»?',
+    ],
+}
+
+
+def normalize_question_profile(value):
+    return value if value in QUESTION_PROFILE_LABELS else 'balanced'
+
+
+def clamp_importance(value, default=3):
+    try:
+        return max(1, min(5, int(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def fallback_question_for_skill(skill, index, question_profile='balanced'):
     skill_name = skill['name'] if isinstance(skill, dict) else str(skill)
     skill_context = {
-        'SQL и базы данных': 'базами данных и SQL',
-        'Backend-разработка': 'backend-разработкой',
-        'Frontend-разработка': 'frontend-разработкой',
-        'Fullstack-разработка': 'fullstack-разработкой',
-        'Docker и контейнеризация': 'Docker и контейнеризацией',
-        'API и интеграции': 'API и интеграциями',
-        'Git и командная работа': 'Git и командной работой',
-        'Тестирование и качество': 'тестированием и контролем качества',
-        'Linux и администрирование': 'Linux и администрированием',
-        'Управление задачами': 'управлением задачами',
-        'HR-процессы': 'HR-процессами',
-        'Архитектура решений': 'архитектурой решений',
-        'Лидерство и наставничество': 'лидерством и наставничеством',
-        'Профильный опыт': 'профильными задачами',
-        'Решение практических задач': 'практическими задачами',
+        'SQL и базы данных': 'SQL и базы данных',
+        'Backend-разработка': 'backend-разработка',
+        'Frontend-разработка': 'frontend-разработка',
+        'Fullstack-разработка': 'fullstack-разработка',
+        'Docker и контейнеризация': 'Docker и контейнеризация',
+        'API и интеграции': 'API и интеграции',
+        'Git и командная работа': 'Git и командная работа',
+        'Тестирование и качество': 'тестирование и контроль качества',
+        'Linux и администрирование': 'Linux и администрирование',
+        'Управление задачами': 'управление задачами',
+        'HR-процессы': 'HR-процессы',
+        'Аналитика данных': 'аналитика данных',
+        'ML/AI': 'ML/AI',
+        'Безопасность': 'безопасность приложения',
+        'Архитектура решений': 'архитектура решений',
+        'Лидерство и наставничество': 'лидерство и наставничество',
+        'Профильный опыт': 'профильный опыт',
+        'Решение практических задач': 'решение практических задач',
+        'Практический опыт': 'практический опыт',
     }.get(skill_name, skill_name)
-    importance = int(skill.get('importance', 3)) if isinstance(skill, dict) else 3
-    templates = [
-        'Опишите реальный проект или задачу, где вы работали с {skill}. Какой был результат и ваша зона ответственности?',
-        'Представьте, что в работе с {skill} появилась нестабильная ошибка. Как вы будете диагностировать причину и проверять исправление?',
-        'Какие типичные ошибки при работе с {skill} вы встречали? Как вы их предотвращаете?',
-        'Как бы вы объяснили выбор подхода или инструмента для задачи, связанной с {skill}: какие плюсы, ограничения и альтернативы учли бы?',
-        'Расскажите о ситуации, где вам пришлось улучшать качество, скорость или надежность решения, связанного с {skill}.',
-    ]
+    importance = clamp_importance(skill.get('importance', 3)) if isinstance(skill, dict) else 3
+    profile = normalize_question_profile(question_profile)
+    templates = QUESTION_PROFILE_TEMPLATES[profile]
     return {
         'skill': skill_name,
         'question': templates[index % len(templates)].format(skill=skill_context),
-        'importance': max(1, min(5, importance)),
+        'importance': importance,
     }
 
 
-def fallback_generate_questions(skills):
+def fallback_generate_questions(skills, question_profile='balanced'):
     normalized_skills = []
     for skill in skills:
         if isinstance(skill, dict):
             name = skill.get('name') or skill.get('skill')
-            importance = int(skill.get('importance', 3))
+            importance = clamp_importance(skill.get('importance', 3))
         else:
             name = str(skill)
             importance = 3
         if name:
             normalized_skills.append({'name': name, 'importance': importance})
 
-    questions = [fallback_question_for_skill(skill, index) for index, skill in enumerate(normalized_skills[:7])]
+    questions = [
+        fallback_question_for_skill(skill, index, question_profile)
+        for index, skill in enumerate(normalized_skills[:7])
+    ]
     for extra_skill in [{'name': 'Практический опыт', 'importance': 4}, {'name': 'Коммуникация', 'importance': 3}]:
         if len(questions) >= 3:
             break
-        questions.append(fallback_question_for_skill(extra_skill, len(questions)))
+        questions.append(fallback_question_for_skill(extra_skill, len(questions), question_profile))
     return questions
 
 
+def build_showcase_generation_variants():
+    variants = []
+    for spec in SHOWCASE_GENERATION_SPECS:
+        skills = fallback_extract_skills(spec['text'])
+        questions = fallback_generate_questions(skills, spec.get('profile', 'balanced'))[:3]
+        variants.append({
+            'key': spec['key'],
+            'title': spec['title'],
+            'description': spec['description'],
+            'profile': QUESTION_PROFILE_LABELS.get(spec.get('profile'), QUESTION_PROFILE_LABELS['balanced']),
+            'skills': [skill['name'] if isinstance(skill, dict) else str(skill) for skill in skills[:5]],
+            'questions': questions,
+        })
+    return variants
+
+
+def build_showcase_evaluation_examples():
+    examples = []
+    for item in SHOWCASE_EVALUATION_EXAMPLES:
+        score = fallback_evaluate_answer(item['question'], item['answer'])
+        if score >= 0.75:
+            conclusion = 'Ответ раскрывает ход решения, инструменты, проверку результата и выглядит готовым для следующего этапа.'
+        elif score >= 0.45:
+            conclusion = 'Ответ по теме, но системе не хватает деталей, проверки результата и уверенной профессиональной аргументации.'
+        else:
+            conclusion = 'Ответ слишком общий: есть отдельные слова по теме, но мало действий, конкретики и подтверждения опыта.'
+
+        examples.append({
+            'title': item['title'],
+            'tone': item['tone'],
+            'question': item['question'],
+            'answer': item['answer'],
+            'score': score,
+            'conclusion': conclusion,
+        })
+    return examples
+
+
 # ========== LLM ==========
+LLM_SYSTEM_PROMPT = """
+Ты работаешь как аккуратный HR-техлид для системы первичного скрининга.
+Не выдумывай лишних требований, не добавляй разговорный мусор, не возвращай Markdown.
+Если нужен JSON, возвращай только валидный JSON без пояснений и без ```json.
+Вопросы должны проверять реальный опыт, действия кандидата, результат, проверку качества и способность объяснить решение.
+Оценка ответа должна учитывать смысл, конкретику, профессиональные действия, проверку результата и соответствие вопросу.
+Запрещены общие вопросы вида "Что вы знаете про ...?".
+""".strip()
+
+
+def get_model_content(response):
+    if isinstance(response, dict):
+        message = response.get('message') or {}
+        return message.get('content', '')
+    message = getattr(response, 'message', None)
+    return getattr(message, 'content', '') if message else ''
+
+
+def extract_json_payload(content):
+    text = (content or '').strip()
+    fenced = re.search(r'```(?:json)?\s*(.*?)\s*```', text, flags=re.IGNORECASE | re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    for left, right in [('[', ']'), ('{', '}')]:
+        start = text.find(left)
+        end = text.rfind(right)
+        if start != -1 and end > start:
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                continue
+    raise ValueError('JSON not found')
+
+
+def coerce_skill_items(raw_skills, fallback_text=''):
+    fallback = fallback_extract_skills(fallback_text) if fallback_text else []
+    items = raw_skills if isinstance(raw_skills, list) else []
+    skills = []
+    seen = set()
+
+    for item in items:
+        if isinstance(item, dict):
+            name = item.get('name') or item.get('skill') or item.get('title')
+            importance = clamp_importance(item.get('importance', 3))
+        else:
+            name = str(item)
+            importance = 3
+
+        name = re.sub(r'\s+', ' ', (name or '').strip())
+        if len(name) < 2:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        skills.append({'name': name[:80], 'importance': importance})
+
+    return skills[:7] or fallback or [
+        {'name': 'Профильный опыт', 'importance': 4},
+        {'name': 'Решение практических задач', 'importance': 4},
+        {'name': 'Коммуникация', 'importance': 3},
+    ]
+
+
+def question_is_usable(question):
+    text = re.sub(r'\s+', ' ', (question or '').strip())
+    if len(text) < 35 or len(text) > 320:
+        return False
+    lowered = text.lower()
+    generic_patterns = [
+        'что вы знаете про',
+        'что вы знаете о',
+        'расскажите про',
+        'что такое ',
+    ]
+    return not any(pattern in lowered for pattern in generic_patterns)
+
+
+def sanitize_question_items(raw_questions, skills, question_profile='balanced'):
+    profile = normalize_question_profile(question_profile)
+    normalized_skills = coerce_skill_items(skills)
+    raw_items = raw_questions if isinstance(raw_questions, list) else []
+    result = []
+    used_questions = set()
+
+    for index, skill in enumerate(normalized_skills):
+        candidate = raw_items[index] if index < len(raw_items) and isinstance(raw_items[index], dict) else {}
+        skill_name = candidate.get('skill') or skill['name']
+        question = re.sub(r'\s+', ' ', str(candidate.get('question') or '').strip())
+        importance = clamp_importance(candidate.get('importance', skill.get('importance', 3)))
+
+        if not question_is_usable(question):
+            fallback = fallback_question_for_skill({'name': skill['name'], 'importance': importance}, index, profile)
+            skill_name = fallback['skill']
+            question = fallback['question']
+            importance = fallback['importance']
+
+        key = question.lower()
+        if key in used_questions:
+            fallback = fallback_question_for_skill({'name': skill['name'], 'importance': importance}, index + 3, profile)
+            skill_name = fallback['skill']
+            question = fallback['question']
+            importance = fallback['importance']
+
+        used_questions.add(question.lower())
+        result.append({
+            'skill': str(skill_name).strip()[:80] or skill['name'],
+            'question': question,
+            'importance': importance,
+        })
+
+    for extra_skill in [{'name': 'Практический опыт', 'importance': 4}, {'name': 'Коммуникация', 'importance': 3}]:
+        if len(result) >= 3:
+            break
+        result.append(fallback_question_for_skill(extra_skill, len(result), profile))
+
+    return result[:7]
+
+
+def parse_numeric_score(value):
+    text = str(value or '').replace(',', '.')
+    json_match = re.search(r'"?score"?\s*:\s*(-?\d+(?:\.\d+)?)', text)
+    if json_match:
+        return float(json_match.group(1))
+    number_match = re.search(r'-?\d+(?:\.\d+)?', text)
+    if number_match:
+        return float(number_match.group(0))
+    raise ValueError('Score not found')
+
+
+def infer_vacancy_title(text):
+    first_line = next((line.strip() for line in (text or '').splitlines() if line.strip()), '')
+    first_line = re.sub(r'^(вакансия|должность|позиция)\s*[:\-]\s*', '', first_line, flags=re.IGNORECASE)
+    first_line = re.sub(r'\s+', ' ', first_line).strip(' .:-')
+    return first_line[:120] if len(first_line) >= 3 else 'Новая вакансия'
+
+
 def extract_skills_with_llm(text):
-    prompt = f"Извлеки ключевые навыки из описания вакансии, навыки напиши на русском:\n{text}\nВерни JSON-массив строк."
+    fallback = fallback_extract_skills(text)
     ollama_client = get_ollama_client()
     if ollama_client is None:
-        return fallback_extract_skills(text)
+        return fallback
+
+    prompt = f"""
+Извлеки 4-7 ключевых навыков из описания вакансии.
+Верни JSON-массив объектов:
+[
+  {{"name": "название навыка на русском", "importance": 1-5}}
+]
+Описание вакансии:
+{text}
+""".strip()
+
     try:
-        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        parsed = json.loads(response['message']['content'])
-        if isinstance(parsed, list) and parsed:
-            return parsed
+        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[
+            {'role': 'system', 'content': LLM_SYSTEM_PROMPT},
+            {'role': 'user', 'content': prompt},
+        ])
+        parsed = extract_json_payload(get_model_content(response))
+        return coerce_skill_items(parsed, text)
     except Exception as error:
         print(f"[Ошибка извлечения навыков]: {error}")
-    return fallback_extract_skills(text)
+        return fallback
 
-def generate_questions_with_llm(skills):
-    prompt = f"""
-Сгенерируй по одному вопросу на русском языке на каждый навык из списка: {skills}.
-Формат JSON: список объектов с полями "skill", "question", "importance" (1–5).
-    """.strip()
+
+def generate_questions_with_llm(skills, vacancy_title='', question_profile='balanced'):
+    profile = normalize_question_profile(question_profile)
+    normalized_skills = coerce_skill_items(skills)
     ollama_client = get_ollama_client()
     if ollama_client is None:
-        return [{"skill": skill, "question": f"Что вы знаете про {skill}?", "importance": 3} for skill in skills]
-    try:
-        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        content = response["message"]["content"]
-        data = json.loads(content)
-        if isinstance(data, list) and data and "question" in data[0]:
-            return data
-        raise ValueError("Invalid format")
-    except Exception as error:
-        print(f"[Ошибка генерации вопросов]: {error}")
-        return [{"skill": skill, "question": f"Что вы знаете про {skill}?", "importance": 3} for skill in skills]
+        return fallback_generate_questions(normalized_skills, profile)
 
-def generate_questions_with_llm(skills):
     prompt = f"""
-Сгенерируй по одному вопросу на русском языке на каждый навык из списка: {skills}.
-Формат JSON: список объектов с полями "skill", "question", "importance" (1-5).
-    """.strip()
-    ollama_client = get_ollama_client()
-    if ollama_client is None:
-        return fallback_generate_questions(skills)
+Сгенерируй вопросы для первичного HR/technical screening.
+Должность: {vacancy_title or 'не указана'}
+Стиль вопросов: {QUESTION_PROFILE_LABELS[profile]}
+Навыки:
+{json.dumps(normalized_skills, ensure_ascii=False)}
+
+Требования:
+- один вопрос на каждый навык;
+- вопрос на русском языке;
+- вопрос должен проверять практический опыт, ход мысли, действия и результат;
+- не делай слишком общие вопросы;
+- не проси писать код целиком;
+- важность бери из навыка или уточняй в диапазоне 1-5.
+
+Верни только JSON-массив объектов:
+[
+  {{"skill": "Python", "question": "текст вопроса", "importance": 5}}
+]
+""".strip()
+
     try:
-        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        content = response["message"]["content"]
-        data = json.loads(content)
-        if isinstance(data, list) and data and "question" in data[0]:
-            return data
-        raise ValueError("Invalid format")
+        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[
+            {'role': 'system', 'content': LLM_SYSTEM_PROMPT},
+            {'role': 'user', 'content': prompt},
+        ])
+        data = extract_json_payload(get_model_content(response))
+        return sanitize_question_items(data, normalized_skills, profile)
     except Exception as error:
         print(f"[Ошибка генерации вопросов]: {error}")
-        return fallback_generate_questions(skills)
+        return fallback_generate_questions(normalized_skills, profile)
 
 
 def evaluate_answer_with_llm(question, answer):
@@ -843,21 +1289,20 @@ def evaluate_answer_with_llm(question, answer):
     if forced_score is not None:
         return forced_score
 
-    # 1. Проверка: если ответ слишком короткий или пустой
     if len(answer) < 10:
         return -1.0
 
-    # 2. Промпт с уточнением
     prompt = f"""
-Ты эксперт по найму.
-Оцени, насколько ответ кандидата полон, корректен и соответствует вопросу.
-- Если ответ пустой, бессмысленный или состоит из одного символа — ставь -1.
-- Если ответ написан связными словами, но не отвечает на вопрос, шутит или уходит в бытовые темы — ставь от -1 до -0.5.
-- Одно случайное слово из вопроса без реального описания опыта, действий и результата не должно давать положительную оценку.
-- Если ответ частично корректен — от 0 до 0.7 в зависимости от полноты, 0 - это меньше половины верно.
-- Если ответ отличный, с примерами — от 0.8 до 1.
+Оцени ответ кандидата на вопрос.
+Шкала:
+-1 = пусто, бессмыслица, бытовая тема, шутка или ответ не по вопросу.
+0 = есть связный текст, но профильная часть почти не раскрыта.
+0.3 = частично по теме, мало конкретики.
+0.6 = по теме, есть действия и понимание, но не хватает деталей или результата.
+0.8 = хороший ответ с примером, действиями и проверкой результата.
+1 = сильный профессиональный ответ с контекстом, решением, рисками и итогом.
 
-Верни **только число** от -1 до 1.
+Верни только одно число от -1 до 1.
 
 Вопрос: {question}
 Ответ: {answer}
@@ -866,27 +1311,43 @@ def evaluate_answer_with_llm(question, answer):
     if ollama_client is None:
         return fallback_evaluate_answer(question, answer)
     try:
-        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        score_text = response["message"]["content"].strip()
-        score = float(score_text.split()[0])
-        return min(max_score, max(-1.0, score))  # Ограничение в диапазоне [-1, 1]
+        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[
+            {'role': 'system', 'content': LLM_SYSTEM_PROMPT},
+            {'role': 'user', 'content': prompt},
+        ])
+        score = parse_numeric_score(get_model_content(response))
+        rule_score = fallback_evaluate_answer(question, answer)
+        if rule_score < 0 and score > 0:
+            score = 0.0
+        elif rule_score < 0.25 and score > 0.7:
+            score = 0.5
+        return round(min(max_score, max(-1.0, score)), 2)
     except Exception as e:
         print(f"Ошибка при оценке ответа: {e}")
         return fallback_evaluate_answer(question, answer)
 
 
 def generate_summary_for_candidate(answers, score):
-    prompt = f"""Ты HR. Вот ответы кандидата:
+    prompt = f"""Сделай краткий HR-отчёт по кандидату.
+Ответы кандидата:
 {json.dumps([{'question': q, 'answer': a, 'score': s} for q, a, s, _ in answers], ensure_ascii=False)}
 Общая оценка: {score}
-Сделай краткий отчёт: соответствие, сильные/слабые стороны, рекомендации.
+Формат:
+1. Соответствие роли.
+2. Сильные стороны.
+3. Зоны риска.
+4. Рекомендация по следующему шагу.
 """
     ollama_client = get_ollama_client()
     if ollama_client is None:
         return fallback_candidate_summary(answers, score)
     try:
-        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        return response['message']['content']
+        response = ollama_client.chat(model=OLLAMA_MODEL, messages=[
+            {'role': 'system', 'content': LLM_SYSTEM_PROMPT},
+            {'role': 'user', 'content': prompt},
+        ])
+        content = get_model_content(response).strip()
+        return content[:1800] if content else fallback_candidate_summary(answers, score)
     except Exception as error:
         print(f"[Ошибка генерации итогового отчёта]: {error}")
         return fallback_candidate_summary(answers, score)
@@ -897,11 +1358,11 @@ def calculate_weighted_score(answers):
     return sum(float(row[2]) * int(row[3] or 0) for row in answers) / total_weight
 
 
-def background_generate_questions(vacancy_id, text):
+def background_generate_questions(vacancy_id, text, vacancy_title='', question_profile='balanced'):
     conn = None
     try:
         skills = extract_skills_with_llm(text)
-        questions = generate_questions_with_llm(skills)
+        questions = generate_questions_with_llm(skills, vacancy_title, question_profile)
         conn = get_db_connection()
         with conn:
             with conn.cursor() as cur:
@@ -1016,10 +1477,11 @@ def seed_demo_data():
                 user = cur.fetchone()
                 if user:
                     user_id = user[0]
+                    cur.execute('UPDATE users SET name = %s WHERE id = %s', ('HR-специалист', user_id))
                 else:
                     cur.execute(
                         'INSERT INTO users (name, email, password) VALUES (%s, %s, %s) RETURNING id',
-                        ('Демо HR', DEMO_EMAIL, build_password_hash(DEMO_PASSWORD)),
+                        ('HR-специалист', DEMO_EMAIL, build_password_hash(DEMO_PASSWORD)),
                     )
                     user_id = cur.fetchone()[0]
 
@@ -1061,6 +1523,118 @@ def seed_demo_data():
                     cur.execute('UPDATE test_session SET summary = %s WHERE id = %s', (summary, session_id))
 
         return user_id, vacancy_id
+    finally:
+        conn.close()
+
+
+def get_showcase_context(vacancy_id):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT id, title, text, status, created_at FROM vacancy WHERE id = %s',
+                (vacancy_id,),
+            )
+            vacancy_row = cur.fetchone()
+            if not vacancy_row:
+                return {
+                    'vacancy': None,
+                    'questions': [],
+                    'results': [],
+                    'vacancy_id': vacancy_id,
+                    'best_result': None,
+                    'review_result': None,
+                    'overview_metrics': {
+                        'skill_count': 0,
+                        'candidate_count': 0,
+                        'best_score': 0,
+                        'invite_count': 0,
+                    },
+                    'generation_variants': build_showcase_generation_variants(),
+                    'evaluation_examples': build_showcase_evaluation_examples(),
+                }
+
+            vacancy = {
+                'id': vacancy_row[0],
+                'title': vacancy_row[1] or 'Вакансия без названия',
+                'text': vacancy_row[2] or '',
+                'status': vacancy_row[3],
+                'created_at': format_display_date(vacancy_row[4]),
+            }
+
+            cur.execute(
+                '''
+                    SELECT id, skill, question, importance
+                    FROM question
+                    WHERE vacancy_id = %s
+                    ORDER BY id
+                ''',
+                (vacancy_id,),
+            )
+            questions = [
+                {
+                    'id': row[0],
+                    'skill': row[1],
+                    'question': row[2],
+                    'importance': row[3],
+                }
+                for row in cur.fetchall()
+            ]
+
+            cur.execute(
+                '''
+                    SELECT id, full_name, created_at, summary
+                    FROM test_session
+                    WHERE vacancy_id = %s
+                    ORDER BY id
+                ''',
+                (vacancy_id,),
+            )
+            sessions = cur.fetchall()
+            results = []
+            for session_id, full_name, created_at, summary in sessions:
+                cur.execute(
+                    '''
+                        SELECT q.question, a.answer, a.score, q.importance
+                        FROM answer a
+                        JOIN question q ON a.question_id = q.id
+                        WHERE a.session_id = %s
+                        ORDER BY q.id
+                    ''',
+                    (session_id,),
+                )
+                answers = cur.fetchall()
+                weighted_score = calculate_weighted_score(answers) if answers else 0
+                results.append({
+                    'session_id': session_id,
+                    'name': full_name or 'Кандидат без имени',
+                    'date': format_display_date(created_at),
+                    'score': round(weighted_score, 2),
+                    'answer_count': len(answers),
+                    'summary': summary or 'Сводка ещё формируется.',
+                })
+
+            results.sort(key=lambda item: item['score'], reverse=True)
+            best_result = results[0] if results else None
+            review_result = results[1] if len(results) > 1 else None
+            overview_metrics = {
+                'skill_count': len(questions),
+                'candidate_count': len(results),
+                'best_score': best_result['score'] if best_result else 0,
+                'invite_count': sum(1 for item in results if item['score'] >= 0.75),
+            }
+
+            return {
+                'vacancy': vacancy,
+                'questions': questions,
+                'results': results,
+                'vacancy_id': vacancy_id,
+                'best_result': best_result,
+                'review_result': review_result,
+                'overview_metrics': overview_metrics,
+                'generation_variants': build_showcase_generation_variants(),
+                'evaluation_examples': build_showcase_evaluation_examples(),
+            }
     finally:
         conn.close()
 # ========== МАРШРУТЫ ==========
@@ -1106,15 +1680,17 @@ def docs():
     return render_template('docs.html')
 
 
-@app.route('/demo')
-def demo():
+@app.route('/showcase')
+def showcase():
     user_id, vacancy_id = seed_demo_data()
     session['user_id'] = user_id
-    flash(
-        f'Демо-стенд готов: создана вакансия, вопросы и результаты кандидатов. Логин: {DEMO_EMAIL}, пароль: {DEMO_PASSWORD}.',
-        'success',
-    )
-    return redirect(url_for('vacancy_result', vacancy_id=vacancy_id))
+    showcase_context = get_showcase_context(vacancy_id)
+    return render_template('showcase.html', **showcase_context)
+
+
+@app.route('/demo')
+def demo():
+    return redirect(url_for('showcase'))
 
 
 @app.route('/dashboard')
@@ -1127,15 +1703,17 @@ def dashboard():
 @login_required
 def new_vacancy():
     if request.method == 'POST':
-        text = request.form['text']
-        title = text[:60]
+        text = request.form['text'].strip()
+        title = (request.form.get('title') or '').strip() or infer_vacancy_title(text)
+        title = title[:120]
+        question_profile = normalize_question_profile(request.form.get('question_profile'))
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute('INSERT INTO vacancy (title, text) VALUES (%s, %s) RETURNING id', (title, text))
                 vid = cur.fetchone()[0]
                 conn.commit()
-                executor.submit(background_generate_questions, vid, text)  # фоновая генерация
+                executor.submit(background_generate_questions, vid, text, title, question_profile)
                 flash('Вакансия создаётся. Вопросы будут сгенерированы позже.', 'info')
                 return redirect(url_for('dashboard'))
         finally:

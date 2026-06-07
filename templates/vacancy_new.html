@@ -14,9 +14,38 @@
 
   <form method="POST" class="form-card form-grid" onsubmit="showLoader()">
     <div class="field">
+      <label for="title">Должность</label>
+      <input id="title" name="title" required maxlength="120" placeholder="Например: Middle Python Backend Developer">
+      <p class="help">Название будет отображаться в панели HR и в общем отчёте.</p>
+    </div>
+
+    <div class="field">
+      <label for="question_profile">Стиль вопросов</label>
+      <select id="question_profile" name="question_profile" class="select-like">
+        <option value="balanced">Баланс опыта и практики</option>
+        <option value="case">Практические кейсы</option>
+        <option value="junior">Junior/Middle</option>
+        <option value="senior">Senior/Lead</option>
+      </select>
+      <p class="help">Меняет формулировки вопросов: от базовых до архитектурных и кейсовых.</p>
+    </div>
+
+    <div class="field">
+      <label>Готовые варианты автозаполнения</label>
+      <div class="preset-grid">
+        <button type="button" class="btn" data-preset="python">Python backend</button>
+        <button type="button" class="btn" data-preset="frontend">Frontend React</button>
+        <button type="button" class="btn" data-preset="qa">QA engineer</button>
+        <button type="button" class="btn" data-preset="data">Data analyst</button>
+        <button type="button" class="btn" data-preset="devops">DevOps engineer</button>
+        <button type="button" class="btn" data-preset="hr">HR specialist</button>
+      </div>
+    </div>
+
+    <div class="field">
       <label for="text">Описание вакансии</label>
       <textarea id="text" name="text" rows="12" required placeholder="Например: Python backend developer. Flask, PostgreSQL, REST API, Docker, Git, опыт тестирования, коммуникация с командой..."></textarea>
-      <p class="help">Для качественной демонстрации укажите технологии, задачи, уровень кандидата и ожидаемые soft skills.</p>
+      <p class="help">Для качественного результата укажите технологии, задачи, уровень кандидата и ожидаемые soft skills.</p>
     </div>
 
     <div class="notice" id="loading" style="display: none;">
@@ -25,19 +54,17 @@
 
     <div class="hero-actions">
       <button type="submit" class="btn btn-primary">Сгенерировать тест</button>
-      <button type="button" class="btn" onclick="fillExample()">Вставить пример</button>
+      <button type="button" class="btn" onclick="fillPreset('python')">Вставить пример</button>
     </div>
   </form>
 </section>
 
 <script>
-  function showLoader() {
-    const loader = document.getElementById("loading");
-    loader.style.display = "block";
-  }
-
-  function fillExample() {
-    document.getElementById("text").value = `Middle Python backend developer
+  const presets = {
+    python: {
+      title: "Middle Python Backend Developer",
+      profile: "balanced",
+      text: `Middle Python backend developer
 
 Задачи:
 - разработка REST API для HR-сервиса;
@@ -51,7 +78,117 @@
 - Flask или FastAPI;
 - SQL и оптимизация запросов;
 - Git, Docker, базовое понимание CI/CD;
-- умение объяснять технические решения простым языком.`;
+- умение объяснять технические решения простым языком.`
+    },
+    frontend: {
+      title: "Frontend Developer React/TypeScript",
+      profile: "case",
+      text: `Frontend Developer React/TypeScript
+
+Задачи:
+- разработка личного кабинета и административных интерфейсов;
+- работа с React, TypeScript, формами, таблицами и фильтрами;
+- интеграция с REST API;
+- оптимизация скорости загрузки и удобства интерфейса;
+- участие в дизайн-ревью и исправлении UI-ошибок.
+
+Требования:
+- React, TypeScript, HTML, CSS;
+- понимание состояния приложения и клиентской маршрутизации;
+- опыт адаптивной верстки;
+- умение тестировать интерфейс и объяснять технические решения.`
+    },
+    qa: {
+      title: "QA Engineer",
+      profile: "junior",
+      text: `QA Engineer
+
+Задачи:
+- тестирование веб-приложений и пользовательских сценариев;
+- составление чек-листов и тест-кейсов;
+- оформление баг-репортов;
+- проверка исправлений и регресс-тестирование;
+- взаимодействие с разработчиками и аналитиками.
+
+Требования:
+- понимание видов тестирования;
+- опыт работы с DevTools, Postman или аналогами;
+- базовое понимание SQL;
+- внимательность, структурное мышление и аккуратная коммуникация.`
+    },
+    data: {
+      title: "Data Analyst",
+      profile: "case",
+      text: `Data Analyst
+
+Задачи:
+- сбор и обработка данных из разных источников;
+- построение отчётов и дашбордов;
+- анализ продуктовых и бизнес-метрик;
+- поиск причин отклонений в данных;
+- подготовка понятных выводов для руководителя.
+
+Требования:
+- SQL, Excel, базовая статистика;
+- Power BI, Tableau или аналогичные BI-инструменты;
+- умение проверять качество данных;
+- способность объяснять выводы простым языком.`
+    },
+    devops: {
+      title: "DevOps Engineer",
+      profile: "senior",
+      text: `DevOps Engineer
+
+Задачи:
+- настройка CI/CD для веб-сервисов;
+- контейнеризация приложений через Docker и docker compose;
+- настройка Linux-серверов, nginx и переменных окружения;
+- мониторинг доступности и логирование ошибок;
+- безопасный выпуск релизов и откат изменений.
+
+Требования:
+- Linux, Bash, Docker, GitLab CI или GitHub Actions;
+- понимание сетей, портов и reverse proxy;
+- опыт диагностики инцидентов;
+- умение описывать риски и план восстановления.`
+    },
+    hr: {
+      title: "HR Specialist",
+      profile: "balanced",
+      text: `HR Specialist
+
+Задачи:
+- ведение подбора сотрудников на технические и офисные позиции;
+- проведение первичных интервью;
+- сопровождение кандидатов по этапам;
+- оформление обратной связи и коммуникация с руководителями;
+- участие в адаптации новых сотрудников.
+
+Требования:
+- опыт подбора и оценки кандидатов;
+- грамотная коммуникация;
+- понимание воронки найма и HR-метрик;
+- умение работать с возражениями и сохранять качество процесса.`
+    }
+  };
+
+  function showLoader() {
+    const loader = document.getElementById("loading");
+    loader.style.display = "block";
   }
+
+  function fillPreset(name) {
+    const preset = presets[name] || presets.python;
+    document.getElementById("title").value = preset.title;
+    document.getElementById("question_profile").value = preset.profile;
+    document.getElementById("text").value = preset.text;
+  }
+
+  document.querySelectorAll("[data-preset]").forEach((button) => {
+    button.addEventListener("click", () => fillPreset(button.dataset.preset));
+  });
+
+  const selectedPreset = new URLSearchParams(window.location.search).get("preset");
+  fillPreset(presets[selectedPreset] ? selectedPreset : "python");
 </script>
 {% endblock %}

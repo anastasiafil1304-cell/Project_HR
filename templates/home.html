@@ -14,20 +14,22 @@
       {% if session.user_id %}
         <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Открыть панель HR</a>
       {% else %}
-        <a class="btn btn-primary" href="{{ url_for('demo') }}">Запустить демо</a>
+        <a class="btn btn-primary" href="{{ url_for('showcase') }}">Открыть обзор процесса</a>
         <a class="btn" href="{{ url_for('signup') }}">Создать HR-аккаунт</a>
       {% endif %}
       <a class="btn" href="{{ url_for('docs') }}">Посмотреть архитектуру</a>
     </div>
   </div>
   <div class="hero-panel">
-    <div class="metric-box">
-      <span class="metric-value">4</span>
-      <span class="metric-label">этапа демонстрации: вакансия, вопросы, тест, отчёт</span>
-    </div>
-    <div class="metric-box">
-      <span class="metric-value">0</span>
-      <span class="metric-label">обязательных внешних сервисов для локального показа</span>
+    <div class="workflow-card">
+      <span class="eyebrow">Сценарий работы</span>
+      <h3>От вакансии до решения по кандидату</h3>
+      <div class="process-list">
+        <div class="process-step"><span>1</span><p>HR создаёт вакансию из текста требований.</p></div>
+        <div class="process-step"><span>2</span><p>Система формирует вопросы по ключевым навыкам.</p></div>
+        <div class="process-step"><span>3</span><p>Кандидат проходит тест по персональной ссылке.</p></div>
+        <div class="process-step"><span>4</span><p>HR сравнивает оценки и открывает подробный отчёт.</p></div>
+      </div>
     </div>
   </div>
 </section>
@@ -35,8 +37,8 @@
 <section class="section">
   <div class="section-head">
     <div>
-      <h2>Что показывает система</h2>
-      <p class="section-note">Ключевые функции, которые удобно демонстрировать на защите.</p>
+      <h2>Основные рабочие зоны</h2>
+      <p class="section-note">Экран построен вокруг задач HR-специалиста: подготовить тест, отправить ссылку, оценить кандидатов.</p>
     </div>
   </div>
   <div class="grid grid-3">
@@ -58,10 +60,10 @@
 <section class="section">
   <div class="grid grid-3">
     <article class="card card-shadow">
-      <h3>Демо-режим</h3>
-      <p>Кнопка «Запустить демо» создаёт готовую вакансию, вопросы и результаты двух кандидатов.</p>
+      <h3>Обзор процесса</h3>
+      <p>Откройте рабочий пример вакансии с вопросами и результатами двух кандидатов.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="{{ url_for('demo') }}">Подготовить демонстрацию</a>
+        <a class="btn btn-primary" href="{{ url_for('showcase') }}">Открыть обзор</a>
       </div>
     </article>
     <article class="card">
@@ -70,7 +72,7 @@
     </article>
     <article class="card">
       <h3>Локальная база</h3>
-      <p>Для защиты достаточно SQLite. PostgreSQL можно подключить отдельно для расширенного режима.</p>
+      <p>SQLite подходит для локального запуска. PostgreSQL можно подключить отдельно для расширенного режима.</p>
     </article>
   </div>
 </section>

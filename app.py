@@ -478,6 +478,13 @@ def initialize_schema(connection, schema_statements):
                 cur.execute(statement)
 
 
+def repair_score_range(connection):
+    with connection:
+        with connection.cursor() as cur:
+            cur.execute('UPDATE answer SET score = 0 WHERE score < 0')
+            cur.execute('UPDATE answer SET score = 1 WHERE score > 1')
+
+
 STOP_WORDS = {
     'и', 'в', 'во', 'на', 'с', 'со', 'по', 'под', 'за', 'из', 'у', 'к', 'ко', 'от', 'до', 'для',
     'что', 'как', 'какой', 'какая', 'какие', 'зачем', 'почему', 'где', 'когда', 'ли', 'это',
@@ -602,23 +609,23 @@ def count_soft_overlap(answer_tokens, question_tokens):
 def answer_quality_gate(question, answer):
     normalized_answer = (answer or '').strip()
     if len(normalized_answer) < 10:
-        return -1.0, 0.0
+        return 0.0, 0.0
 
     answer_tokens = keyword_tokens(normalized_answer)
     question_tokens = keyword_tokens(question)
 
     if len(answer_tokens) < 3:
-        return -0.5, 0.0
+        return 0.0, 0.0
 
     if looks_like_gibberish(normalized_answer, answer_tokens):
-        return -0.8, 0.0
+        return 0.0, 0.0
 
     alpha_chars = [char for char in normalized_answer.lower() if char.isalpha()]
     if len(alpha_chars) >= 20:
         vowels = set('aeiouy' + '\u0430\u0435\u0451\u0438\u043e\u0443\u044b\u044d\u044e\u044f')
         vowel_ratio = sum(1 for char in alpha_chars if char in vowels) / len(alpha_chars)
         if vowel_ratio < 0.16:
-            return -0.6, 0.0
+            return 0.0, 0.0
 
     answer_set = set(answer_tokens)
     question_set = set(question_tokens)
@@ -629,13 +636,13 @@ def answer_quality_gate(question, answer):
     off_topic_hits = count_stem_matches(answer_tokens, OFF_TOPIC_STEMS)
 
     if off_topic_hits and professional_hits <= 1:
-        return -0.7, 0.0
+        return 0.0, 0.0
 
     if question_set and soft_overlap == 0 and professional_hits == 0:
-        return -0.6, 0.0
+        return 0.0, 0.0
 
     if question_set and soft_overlap <= 1 and professional_hits <= 1 and len(answer_tokens) < 12:
-        return -0.5, 0.0
+        return 0.0, 0.0
 
     if question_set and overlap and len(new_terms) < 3 and len(overlap) / max(1, len(answer_set)) >= 0.6:
         return 0.05, 0.15
@@ -723,7 +730,7 @@ def fallback_evaluate_answer(question, answer):
     if score >= 0.75 and result_hits == 0 and structure_hits == 0:
         score = min(score, 0.72)
 
-    return max(-1.0, min(max_score, round(score, 2)))
+    return clamp_score(min(max_score, score))
 
 
 def format_display_date(value):
@@ -781,8 +788,9 @@ def infer_competency_label(question):
 
 
 def fallback_candidate_summary(answers, score):
-    strong_answers = [infer_competency_label(question) for question, _, answer_score, _ in answers if float(answer_score) >= 0.75]
-    weak_answers = [infer_competency_label(question) for question, _, answer_score, _ in answers if float(answer_score) < 0.45]
+    score = clamp_score(score)
+    strong_answers = [infer_competency_label(question) for question, _, answer_score, _ in answers if clamp_score(answer_score) >= 0.75]
+    weak_answers = [infer_competency_label(question) for question, _, answer_score, _ in answers if clamp_score(answer_score) < 0.45]
     if score >= 0.78:
         verdict = 'кандидат уверенно подходит для следующего этапа.'
         recommendation = 'пригласить на техническое интервью и проверить глубину опыта на реальном кейсе.'
@@ -852,6 +860,7 @@ def init_db():
             conn = get_db_connection(engine)
             schema = POSTGRES_SCHEMA if engine == 'postgres' else SQLITE_SCHEMA
             initialize_schema(conn, schema)
+            repair_score_range(conn)
             ACTIVE_DB_ENGINE = engine
             DB_READY = True
             print(f"[База данных]: используется {engine}")
@@ -997,6 +1006,13 @@ def normalize_question_profile(value):
 def clamp_importance(value, default=3):
     try:
         return max(1, min(5, int(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def clamp_score(value, default=0.0):
+    try:
+        return round(max(0.0, min(1.0, float(value))), 2)
     except (TypeError, ValueError):
         return default
 
@@ -1311,22 +1327,21 @@ def evaluate_answer_with_llm(question, answer):
     answer = (answer or '').strip()
     forced_score, max_score = answer_quality_gate(question, answer)
     if forced_score is not None:
-        return forced_score
+        return clamp_score(forced_score)
 
     if len(answer) < 10:
-        return -1.0
+        return 0.0
 
     prompt = f"""
 Оцени ответ кандидата на вопрос.
 Шкала:
--1 = пусто, бессмыслица, бытовая тема, шутка или ответ не по вопросу.
-0 = есть связный текст, но профильная часть почти не раскрыта.
+0 = пусто, бессмыслица, бытовая тема, шутка, ответ не по вопросу или профильная часть почти не раскрыта.
 0.3 = частично по теме, мало конкретики.
 0.6 = по теме, есть действия и понимание, но не хватает деталей или результата.
 0.8 = хороший ответ с примером, действиями и проверкой результата.
 1 = сильный профессиональный ответ с контекстом, решением, рисками и итогом.
 
-Верни только одно число от -1 до 1.
+Верни только одно число от 0 до 1.
 
 Вопрос: {question}
 Ответ: {answer}
@@ -1341,11 +1356,9 @@ def evaluate_answer_with_llm(question, answer):
         ])
         score = parse_numeric_score(get_model_content(response))
         rule_score = fallback_evaluate_answer(question, answer)
-        if rule_score < 0 and score > 0:
-            score = 0.0
-        elif rule_score < 0.25 and score > 0.7:
+        if rule_score < 0.25 and score > 0.7:
             score = 0.5
-        return round(min(max_score, max(-1.0, score)), 2)
+        return clamp_score(min(max_score, score))
     except Exception as e:
         print(f"Ошибка при оценке ответа: {e}")
         return fallback_evaluate_answer(question, answer)
@@ -1379,7 +1392,19 @@ def generate_summary_for_candidate(answers, score):
 # ========== ФОНОВАЯ ГЕНЕРАЦИЯ ==========
 def calculate_weighted_score(answers):
     total_weight = sum(int(row[3] or 0) for row in answers) or 1
-    return sum(float(row[2]) * int(row[3] or 0) for row in answers) / total_weight
+    score = sum(clamp_score(row[2]) * int(row[3] or 0) for row in answers) / total_weight
+    return clamp_score(score)
+
+
+def normalize_answer_scores(answers):
+    return [
+        (row[0], row[1], clamp_score(row[2]), row[3])
+        for row in answers
+    ]
+
+
+def summary_needs_score_refresh(summary):
+    return bool(re.search(r'(^|[\s:])-\d+(?:[.,]\d+)?', summary or ''))
 
 
 def background_generate_questions(vacancy_id, text, vacancy_title='', question_profile='balanced'):
@@ -1417,7 +1442,7 @@ def background_generate_summary(session_id):
                     JOIN question q ON a.question_id = q.id
                     WHERE a.session_id = %s
                 """, (session_id,))
-                answers = cur.fetchall()
+                answers = normalize_answer_scores(cur.fetchall())
                 weighted_score = calculate_weighted_score(answers)
                 summary = generate_summary_for_candidate(answers, weighted_score)
 
@@ -1439,7 +1464,7 @@ def get_dashboard_data():
                 cur.execute('SELECT COUNT(*) FROM question WHERE vacancy_id = %s', (vacancy_id,))
                 question_count = cur.fetchone()[0] or 0
                 cur.execute('''
-                    SELECT AVG(a.score)
+                    SELECT AVG(CASE WHEN a.score < 0 THEN 0 WHEN a.score > 1 THEN 1 ELSE a.score END)
                     FROM answer a
                     JOIN test_session ts ON a.session_id = ts.id
                     WHERE ts.vacancy_id = %s
@@ -1630,13 +1655,13 @@ def get_showcase_context(vacancy_id):
                     ''',
                     (session_id,),
                 )
-                answers = cur.fetchall()
+                answers = normalize_answer_scores(cur.fetchall())
                 weighted_score = calculate_weighted_score(answers) if answers else 0
                 results.append({
                     'session_id': session_id,
                     'name': full_name or 'Кандидат без имени',
                     'date': format_display_date(created_at),
-                    'score': round(weighted_score, 2),
+                    'score': clamp_score(weighted_score),
                     'answer_count': len(answers),
                     'summary': summary or 'Сводка ещё формируется.',
                 })
@@ -1950,12 +1975,16 @@ def test_result(session_id):
                 JOIN question q ON a.question_id = q.id
                 WHERE a.session_id = %s
             """, (session_id,))
-            answers = cur.fetchall()
+            answers = normalize_answer_scores(cur.fetchall())
             weighted_score = calculate_weighted_score(answers)
 
             cur.execute("SELECT summary FROM test_session WHERE id = %s", (session_id,))
             summary_row = cur.fetchone()
             summary = summary_row[0] if summary_row and summary_row[0] else "Отчёт ещё формируется..."
+            if summary == "Отчёт ещё формируется..." or summary_needs_score_refresh(summary):
+                summary = fallback_candidate_summary(answers, weighted_score)
+                cur.execute("UPDATE test_session SET summary = %s WHERE id = %s", (summary, session_id))
+                conn.commit()
 
             return render_template("test_result.html", answers=answers,
                                    final_score=round(weighted_score, 2),
@@ -1980,8 +2009,8 @@ def vacancy_result(vacancy_id):
                 ''', (sid,))
                 data = cur.fetchall()
                 total = sum([int(w) for w, _ in data]) or 1
-                score = sum([float(s) * int(w) for w, s in data]) / total
-                results.append({"name": name, "score": round(score, 2), "date": format_display_date(dt), "session_id": sid})
+                score = sum([clamp_score(s) * int(w) for w, s in data]) / total
+                results.append({"name": name, "score": clamp_score(score), "date": format_display_date(dt), "session_id": sid})
             return render_template('vacancy_result.html', results=results)
     finally:
         conn.close()

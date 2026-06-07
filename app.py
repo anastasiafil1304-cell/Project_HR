@@ -8,6 +8,7 @@ from functools import wraps
 from datetime import datetime
 import importlib
 import json
+from collections import Counter
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -604,6 +605,41 @@ def count_soft_overlap(answer_tokens, question_tokens):
                 break
 
     return overlap
+
+
+def answer_identity_key(answer):
+    tokens = keyword_tokens(answer)
+    if len(tokens) < 5:
+        return ''
+    return ' '.join(tokens[:80])
+
+
+def answer_copies_question_text(answer, question_texts):
+    normalized_answer = normalize_skill_text(answer)
+    if len(normalized_answer) >= 28:
+        for question in question_texts:
+            normalized_question = normalize_skill_text(question)
+            if normalized_answer in normalized_question:
+                return True
+
+    answer_tokens = keyword_tokens(answer)
+    if len(answer_tokens) < 5:
+        return False
+
+    answer_set = set(answer_tokens)
+    for question in question_texts:
+        question_tokens = keyword_tokens(question)
+        if len(question_tokens) < 4:
+            continue
+
+        question_set = set(question_tokens)
+        soft_overlap = count_soft_overlap(answer_tokens, question_tokens)
+        overlap_ratio = soft_overlap / max(1, len(answer_set))
+        new_terms = answer_set - question_set
+        if overlap_ratio >= 0.7 and len(new_terms) <= max(2, len(answer_set) // 4):
+            return True
+
+    return False
 
 
 def answer_quality_gate(question, answer):
@@ -1397,10 +1433,43 @@ def calculate_weighted_score(answers):
 
 
 def normalize_answer_scores(answers):
-    return [
+    normalized = [
         (row[0], row[1], clamp_score(row[2]), row[3])
         for row in answers
     ]
+    question_texts = [row[0] for row in normalized]
+    answer_keys = [answer_identity_key(row[1]) for row in normalized]
+    repeated_answers = Counter(key for key in answer_keys if key)
+
+    guarded = []
+    for (question, answer, score, importance), answer_key in zip(normalized, answer_keys):
+        adjusted_score = score
+        forced_score, _ = answer_quality_gate(question, answer)
+        if forced_score is not None:
+            adjusted_score = min(adjusted_score, clamp_score(forced_score))
+        if answer_copies_question_text(answer, question_texts):
+            adjusted_score = min(adjusted_score, 0.05)
+        if answer_key and repeated_answers[answer_key] > 1:
+            adjusted_score = min(adjusted_score, 0.05)
+        guarded.append((question, answer, clamp_score(adjusted_score), importance))
+
+    return guarded
+
+
+def normalize_answer_rows_with_ids(rows):
+    answers = [
+        (row[1], row[2], row[3], row[4])
+        for row in rows
+    ]
+    normalized = normalize_answer_scores(answers)
+    changes = []
+    for row, normalized_answer in zip(rows, normalized):
+        answer_id = row[0]
+        original_score = clamp_score(row[3])
+        adjusted_score = normalized_answer[2]
+        if adjusted_score != original_score:
+            changes.append((adjusted_score, answer_id))
+    return normalized, changes
 
 
 def summary_needs_score_refresh(summary):
@@ -1923,7 +1992,7 @@ def candidate_test(vacancy_id):
                 ), 404
 
             _, vacancy_title, vacancy_status = vacancy
-            cur.execute('SELECT id, question FROM question WHERE vacancy_id = %s ORDER BY id', (vacancy_id,))
+            cur.execute('SELECT id, question, importance FROM question WHERE vacancy_id = %s ORDER BY id', (vacancy_id,))
             questions = cur.fetchall()
             if request.method == 'POST':
                 if not questions:
@@ -1939,11 +2008,24 @@ def candidate_test(vacancy_id):
                 cur.execute('INSERT INTO test_session (vacancy_id, full_name) VALUES (%s, %s) RETURNING id',
                             (vacancy_id, full_name))
                 session_id = cur.fetchone()[0]
-                for qid, text in questions:
+                submitted_answers = []
+                for qid, text, importance in questions:
                     ans = (request.form.get(f'answer{qid}') or '').strip()
                     score = evaluate_answer_with_llm(text, ans)
+                    submitted_answers.append({
+                        'question_id': qid,
+                        'question': text,
+                        'answer': ans,
+                        'score': score,
+                        'importance': importance,
+                    })
+                normalized_answers = normalize_answer_scores([
+                    (item['question'], item['answer'], item['score'], item['importance'])
+                    for item in submitted_answers
+                ])
+                for item, (_, _, adjusted_score, _) in zip(submitted_answers, normalized_answers):
                     cur.execute('INSERT INTO answer (question_id, session_id, answer, score) VALUES (%s, %s, %s, %s)',
-                                (qid, session_id, ans, score))
+                                (item['question_id'], session_id, item['answer'], adjusted_score))
                 conn.commit()
                 executor.submit(background_generate_summary, session_id)
                 return redirect(url_for('test_result', session_id=session_id))
@@ -1970,18 +2052,20 @@ def test_result(session_id):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT q.question, a.answer, a.score, q.importance
+                SELECT a.id, q.question, a.answer, a.score, q.importance
                 FROM answer a
                 JOIN question q ON a.question_id = q.id
                 WHERE a.session_id = %s
             """, (session_id,))
-            answers = normalize_answer_scores(cur.fetchall())
+            answers, score_changes = normalize_answer_rows_with_ids(cur.fetchall())
+            for adjusted_score, answer_id in score_changes:
+                cur.execute('UPDATE answer SET score = %s WHERE id = %s', (adjusted_score, answer_id))
             weighted_score = calculate_weighted_score(answers)
 
             cur.execute("SELECT summary FROM test_session WHERE id = %s", (session_id,))
             summary_row = cur.fetchone()
             summary = summary_row[0] if summary_row and summary_row[0] else "Отчёт ещё формируется..."
-            if summary == "Отчёт ещё формируется..." or summary_needs_score_refresh(summary):
+            if score_changes or summary == "Отчёт ещё формируется..." or summary_needs_score_refresh(summary):
                 summary = fallback_candidate_summary(answers, weighted_score)
                 cur.execute("UPDATE test_session SET summary = %s WHERE id = %s", (summary, session_id))
                 conn.commit()
@@ -2003,13 +2087,13 @@ def vacancy_result(vacancy_id):
             results = []
             for sid, name, dt in sessions:
                 cur.execute('''
-                    SELECT q.importance, a.score
+                    SELECT q.question, a.answer, a.score, q.importance
                     FROM answer a JOIN question q ON a.question_id = q.id
                     WHERE a.session_id = %s
                 ''', (sid,))
-                data = cur.fetchall()
-                total = sum([int(w) for w, _ in data]) or 1
-                score = sum([clamp_score(s) * int(w) for w, s in data]) / total
+                data = normalize_answer_scores(cur.fetchall())
+                total = sum([int(w) for _, _, _, w in data]) or 1
+                score = sum([clamp_score(s) * int(w) for _, _, s, w in data]) / total
                 results.append({"name": name, "score": clamp_score(score), "date": format_display_date(dt), "session_id": sid})
             return render_template('vacancy_result.html', results=results)
     finally:
@@ -2100,7 +2184,7 @@ def evaluate_manually(vacancy_id):
     try:
         with conn.cursor() as cur:
             # Получаем все вопросы по вакансии
-            cur.execute('SELECT id, question FROM question WHERE vacancy_id = %s', (vacancy_id,))
+            cur.execute('SELECT id, question, importance FROM question WHERE vacancy_id = %s ORDER BY id', (vacancy_id,))
             questions = cur.fetchall()
 
             if request.method == 'POST':
@@ -2112,21 +2196,30 @@ def evaluate_manually(vacancy_id):
                             (vacancy_id, 'HR MANUAL'))
                 session_id = cur.fetchone()[0]
                 answers_for_summary = []
+                submitted_answers = []
 
-                for qid, qtext in questions:
-                    importance = 3
+                for qid, qtext, importance in questions:
                     answer = (request.form.get(f'answer{qid}') or '').strip()
                     score = evaluate_answer_with_llm(qtext, answer)
+                    submitted_answers.append({
+                        'question_id': qid,
+                        'question': qtext,
+                        'answer': answer,
+                        'score': score,
+                        'importance': importance,
+                    })
+
+                normalized_answers = normalize_answer_scores([
+                    (item['question'], item['answer'], item['score'], item['importance'])
+                    for item in submitted_answers
+                ])
+
+                for item, (_, _, adjusted_score, importance) in zip(submitted_answers, normalized_answers):
                     cur.execute(
                         'INSERT INTO answer (question_id, session_id, answer, score) VALUES (%s, %s, %s, %s)',
-                        (qid, session_id, answer, score)
+                        (item['question_id'], session_id, item['answer'], adjusted_score)
                     )
-                    answers_for_summary.append((qtext, answer, score, importance))
-
-                # Генерация отчёта и сохранение
-                total_weight = sum([3 for _ in questions]) or 1
-                weighted_score = sum([3 * 0.5 for _ in questions]) / total_weight  # для примера
-                summary = generate_summary_for_candidate([(q[1], "пример", 0.5, 3) for q in questions], weighted_score)
+                    answers_for_summary.append((item['question'], item['answer'], adjusted_score, importance))
 
                 weighted_score = calculate_weighted_score(answers_for_summary)
                 summary = generate_summary_for_candidate(answers_for_summary, weighted_score)

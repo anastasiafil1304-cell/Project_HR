@@ -70,6 +70,7 @@ Email: demo.hr@project.local
 
 Используются параметры:
 - SECRET_KEY
+- PUBLIC_BASE_URL
 - APP_HOST
 - APP_PORT
 - OPEN_BROWSER
@@ -88,6 +89,12 @@ Email: demo.hr@project.local
 - APP_PORT=5000
 - OPEN_BROWSER=1
 - DB_ENGINE=auto
+
+`PUBLIC_BASE_URL` задаёт внешний адрес для ссылок кандидатов. Для удалённого показа пример:
+
+```text
+PUBLIC_BASE_URL=http://185.154.75.113:5000
+```
 - OLLAMA_ENABLED=1
 - OLLAMA_MODEL=mistral
 - DB_NAME=vacmatch

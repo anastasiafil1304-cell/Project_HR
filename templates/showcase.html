@@ -263,7 +263,7 @@
     <a class="action-tile" href="{{ url_for('candidate_test', vacancy_id=vacancy_id) }}">
       <span>Раздел 3</span>
       <strong>Ссылка кандидата</strong>
-      <em>{{ request.host_url.rstrip('/') }}/test/{{ vacancy_id }}</em>
+      <em>{{ candidate_test_url(vacancy_id) }}</em>
     </a>
     <a class="action-tile" href="{{ url_for('vacancy_result', vacancy_id=vacancy_id) }}">
       <span>Раздел 4</span>

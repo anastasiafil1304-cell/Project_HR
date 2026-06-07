@@ -58,7 +58,9 @@
           {% if v.status == 'Готово' %}
             <div class="notice candidate-link" style="margin: 14px 0;">
               <span>Ссылка кандидату</span>
-              <strong>{{ request.host_url.rstrip('/') }}/test/{{ v.id }}</strong>
+              <a class="candidate-url" href="{{ candidate_test_url(v.id) }}" target="_blank" rel="noopener">
+                {{ candidate_test_url(v.id) }}
+              </a>
             </div>
           {% else %}
             <div class="notice notice-warning" style="margin: 14px 0;">

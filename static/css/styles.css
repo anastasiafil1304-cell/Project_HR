@@ -549,6 +549,17 @@ select {
   color: var(--primary-dark);
 }
 
+.candidate-url {
+  color: var(--primary-dark);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.candidate-url:hover {
+  text-decoration: underline;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);

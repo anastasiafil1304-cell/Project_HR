@@ -9,6 +9,7 @@ from datetime import datetime
 import importlib
 import json
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 try:
     import psycopg
@@ -72,6 +73,7 @@ def env_flag(name, default='0'):
 load_dotenv(runtime_path('.env'))
 
 app = Flask(__name__, template_folder=resource_path('templates'), static_folder=resource_path('static'))
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 app.secret_key = os.getenv('SECRET_KEY', 'default-secret-key')
 DB_ENGINE = os.getenv('DB_ENGINE', 'auto').lower()
 SQLITE_PATH = os.getenv('SQLITE_PATH', data_path('vacmatch.db'))
@@ -90,6 +92,28 @@ OLLAMA_ENABLED = env_flag('OLLAMA_ENABLED', '1')
 OLLAMA_TIMEOUT = float(os.getenv('OLLAMA_TIMEOUT', '6'))
 MAX_ANSWER_LENGTH = int(os.getenv('MAX_ANSWER_LENGTH', '2500'))
 DB_READY = False
+
+
+def normalize_public_base_url(value):
+    value = (value or '').strip().rstrip('/')
+    if not value:
+        return ''
+    if not re.match(r'^https?://', value, re.IGNORECASE):
+        value = f'http://{value}'
+    return value.rstrip('/')
+
+
+PUBLIC_BASE_URL = normalize_public_base_url(os.getenv('PUBLIC_BASE_URL', ''))
+
+
+def public_url_for(endpoint, **values):
+    if PUBLIC_BASE_URL:
+        return f"{PUBLIC_BASE_URL}{url_for(endpoint, **values)}"
+    return url_for(endpoint, _external=True, **values)
+
+
+def candidate_test_public_url(vacancy_id):
+    return public_url_for('candidate_test', vacancy_id=vacancy_id)
 
 DEMO_EMAIL = 'demo.hr@project.local'
 DEMO_PASSWORD = 'Demo12345'
@@ -1648,6 +1672,14 @@ def handle_db_unavailable(error):
         503,
     )
 
+
+@app.context_processor
+def inject_public_link_helpers():
+    return {
+        'candidate_test_url': candidate_test_public_url,
+    }
+
+
 @app.route('/')
 def home():
     return render_template('home.html', is_authenticated='user_id' in session)
@@ -1725,7 +1757,19 @@ def candidate_test(vacancy_id):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute('SELECT id, question FROM question WHERE vacancy_id = %s', (vacancy_id,))
+            cur.execute('SELECT id, title, status FROM vacancy WHERE id = %s', (vacancy_id,))
+            vacancy = cur.fetchone()
+            if not vacancy:
+                return render_template(
+                    'test_candidate_form.html',
+                    questions=[],
+                    vacancy_id=vacancy_id,
+                    vacancy_title='Тест не найден',
+                    error='Ссылка на тест неверная или вакансия была удалена.',
+                ), 404
+
+            _, vacancy_title, vacancy_status = vacancy
+            cur.execute('SELECT id, question FROM question WHERE vacancy_id = %s ORDER BY id', (vacancy_id,))
             questions = cur.fetchall()
             if request.method == 'POST':
                 if not questions:
@@ -1733,7 +1777,8 @@ def candidate_test(vacancy_id):
                         'test_candidate_form.html',
                         questions=questions,
                         vacancy_id=vacancy_id,
-                        error='Вопросы для этой вакансии еще не готовы.',
+                        vacancy_title=vacancy_title,
+                        error='Вопросы для этой вакансии ещё не готовы. Обновите страницу через несколько секунд.',
                     ), 409
 
                 full_name = (request.form.get('full_name') or '').strip()
@@ -1749,7 +1794,19 @@ def candidate_test(vacancy_id):
                 executor.submit(background_generate_summary, session_id)
                 return redirect(url_for('test_result', session_id=session_id))
             else:
-                return render_template('test_candidate_form.html', questions=questions, vacancy_id=vacancy_id)
+                error = None
+                if not questions:
+                    if vacancy_status == 'Ошибка':
+                        error = 'Вопросы для этого теста не сформировались. HR-специалисту нужно создать тест заново.'
+                    else:
+                        error = 'Вопросы ещё формируются. Обычно это занимает несколько секунд.'
+                return render_template(
+                    'test_candidate_form.html',
+                    questions=questions,
+                    vacancy_id=vacancy_id,
+                    vacancy_title=vacancy_title,
+                    error=error,
+                )
     finally:
         conn.close()
 
